@@ -1,0 +1,424 @@
+drl_report_line(OFF)
+from collections import deque
+from time import time
+tl = lambda *n: tp_log(' '.join(map(str,n)))
+
+def exc(n,s,e):
+    n = list(n)
+    n[s],n[e] = n[e],'0'
+    return ''.join(n)
+
+def exp(mode,n,pos = None):
+    res = []
+    li = [i for i in range(len(n)) if n[i] == '0' and i not in fix] if mode else [pos]
+    for pos in li:
+        if Type != 1:
+            for i in range(4):
+                npos = pos + dxy[i]
+                if pos not in wall[i] and \
+                   n[npos] not in (['0','x'] if mode else ['x']) and npos not in fix:
+                    res.append(exc(n,pos,npos) if mode else npos)
+        else:
+            for i in range(4):
+                for j in range(2): # floor
+                    npos = pos + dxy[i]
+                    if j:
+                        npos += 9 if pos < 9 else -9
+                    if pos not in wall[pos >= 9][i] and \
+                       n[npos] not in ['0','x'] and npos not in fix:
+                        # 층간 이동 조건
+                        if pos >= 9 and n[pos - 9] == '0' or \
+                           npos < 9 and n[npos + 9] != '0':
+                            continue
+                        res.append(exc(n,pos,npos))
+    return res
+
+def bfs(mode,n,*args):
+    if mode == 0:
+        s,e = args
+    if mode == 1:
+        pos,pack = args
+    if mode == 2:
+        idx = args[0]
+    cur = n if mode else s
+    que = deque([cur])
+    mkd = {cur:'s'}
+    def isleaf(cur):
+        if mode == 0 and cur == e or \
+           mode == 1 and cur[pos] == pack:
+            return 1
+        if mode == 2:
+            if idx:
+                if all([cur[i] == leaf[i] for i in idx]):
+                    return 1
+            else:
+                if cur == leaf:
+                    return 1
+        return 0
+    while 1:
+        cur = que.popleft()
+        if isleaf(cur):
+            break
+        for i in exp(mode,cur if mode else n,cur):
+            if i not in mkd:
+                mkd[i] = cur
+                que.append(i)
+    mkd['e'] = cur
+    return (mkd,cur) if mode else mkd
+
+def path(mkd):
+    cur = mkd['e']
+    path = [cur]
+    while mkd[cur] != 's':
+        cur = mkd[cur]
+        path.append(cur)
+    return path[::-1][1:]
+
+def sort(n,pos):
+    res = []
+    p = leaf[pos]    
+    hold = []    
+    cur = pos
+    while 1:
+        li = exp(0,n,cur)
+        if len(li) == 1:
+            mkd,n = bfs(1,n,cur,'0')
+            res += path(mkd)
+            hold.append(cur)
+            fix.append(cur)
+            cur = li[0]
+        else:
+            for i in hold:
+                fix.remove(i)
+            break        
+    s = [i for i in range(16) if n[i] == p and i not in fix][0]    
+    r = path(bfs(0,n,s,pos))    
+    for i in range(len(r)):
+        if hold:
+            if not i:
+                fix.extend(hold)
+            if r[i] == r[-len(hold)]:
+                for j in hold:
+                    fix.remove(j)
+        mkd,n = bfs(1,n,r[i],p)
+        res += path(mkd)
+    fix.append(pos)        
+    return res,n
+
+def con(res): # convert
+    path = []
+    fir = res[0] # first
+    for sec in res[1:]:
+        step = [None] * 2
+        for i in range(len(sec)):
+            if fir[i] != sec[i]:
+                if fir[i] == '0':
+                    step[1] = i
+                else:
+                    step[0] = i
+        path.append(step)
+        fir = sec[::]
+    return path            
+
+def main(t,r,l):
+    global Type,root,leaf,wall,dxy,fix
+    Type,root,leaf = t,r,l
+    
+    res,n = [root],root
+    wall = [[[0,1,2],[6,7,8],[0],[8]],
+            [[[0,1,2],[2,5,8],[6,7,8],[0,3,6]],
+            [[9,10,11],[11,14,17],[15,16,17],[9,12,15]]],
+            [[0,1,2,3],[3,7,11,15],[12,13,14,15],[0,4,8,12]]][Type]
+    dxy = [[-3,3,-1,1],[-3,1,3,-1],[-4,1,4,-1]][Type]
+    fix = []
+
+    if Type == 0:
+        for i in [0,8]:
+            if leaf[i] != '0':
+                mkd,n = bfs(1,n,i,leaf[i])
+                res += path(mkd)
+                fix.append(i)
+        res += path(bfs(2,n,None)[0])
+
+    if Type == 1:
+        def aro(pos):
+            res = []
+            for i in range(4):
+                npos = pos + dxy[i]
+                if pos not in wall[pos >= 9][i] and npos not in fix:
+                    res.append(npos)
+            return res        
+        for pos in range(9):
+            if leaf[pos] != '0':
+                fix = [i for i in range(9) if i != pos and n[i] not in ['0',leaf[pos]]]
+                mkd,n = bfs(1,n,pos,leaf[pos])
+                res += path(mkd)                
+        fix = [i for i in range(9) if leaf[i] != '0']
+        fp = []
+        for pos in range(9):
+            if leaf[pos] == '0':                
+                for i in aro(pos + 9):
+                    if leaf[i] not in ['0','x'] + fp:
+                        pack = leaf[i]
+                        fp.append(pack)
+                        break
+                mkd,n = bfs(1,n,pos,pack)
+                res += path(mkd)
+                fix.append(pos)                
+        mkd,n = bfs(2,n,[i for i in range(9,18) if leaf[i] not in fp])
+        res += path(mkd)        
+        fix = []
+        res += path(bfs(2,n,None)[0])
+
+    if Type == 2:
+        pos = n.index('x')        
+        di = {5:wall[3][::]+[3,14,15],9:wall[3][::-1]+[15,2,3],
+              6:wall[1][::]+[0,12,13],10:wall[1][::-1]+[12,0,1]}        
+        li = [[3,12,15,7,11,13,14],[0,12,15,4,8,13,14],
+              [0,3,12,1,2,4,8],[3,12,15,7,11,13,14]]
+        if pos in di:
+            sqc = di[pos]
+        else:
+            sqc = [i for i in li if pos not in i][0]
+        for i in sqc:
+            if leaf[i] != '0':
+                p,n = sort(n,i)
+                res += p
+            else:
+                mkd,n = bfs(1,n,i,'0')
+                res += path(mkd)
+                fix.append(i)            
+        res += path(bfs(2,n,None)[0])        
+
+    return con(res)
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4]  * 2
+
+for i in [w,r]:
+    i[1:-1] = map(ord,i[1:-1])
+    
+def write(ad,val,n = 0):
+    ad += [0,18,45][n]
+    ser = serial_open(port = 'COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord('0') if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad,n = 0):
+    ad += [0,18,45][n]
+    ser = serial_open(port = 'COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+
+def rs():
+    gantry(1,4)
+    grip(-1)
+    aml([0,0,100,0,0,0], mod = 1)
+    wait(0.1)
+    amj([90,0] * 3,150,150)
+    li = [6, 5, 2, 9, 4, 1, 3, 0, 0, 3, 0, 1, 9, 2, 4, 5, 0, 6,
+          1, 3, 5, 2, 4, 9, 0, 0, 6, 0, 0, 0, 0, 0, 9, 0, 0, 0, 0, 5, 6, 4, 3, 0, 1, 2, 0, 
+          4, 5, 1, 2, 0, 3, 9, 6, 6, 2, 0, 4, 1, 0, 5, 3, 1, 5, 0,
+          6, 7, 1, 6, 3, 4, 2, 5, 8]
+    for i in range(73):
+        write(i,li[i])
+        
+set_velx(1200); set_accx(3000)
+begin_blend(25)
+ml,mj,aml,amj = movel,movej,amovel,amovej
+
+POS = [posx(199.31, 420.65, 16.33, 90, 180, 0),
+           posx(378.25, 279.75, 16.5, 0, 180, 0),
+           posx(-319.48, 122.8, 15.12, 90, 180, 0)]
+           
+ip = posx(444.86, 185.64, 82.66, 0, -180, 0) # index table pos
+tp = None # tool pos           
+up = lambda pos,h = [100,40]: trans(pos,[0,0,h[isgrip],0,0,0])
+            
+def posing(Type,pos):
+    x = [9,3,4][Type]
+    pos = [pos] * [9,18,16][Type]
+    for i in range(1,len(pos)):
+        if i % x: 
+            pos[i] = trans(pos[i-1],[-50,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,50,0,0,0,0])
+        if Type == 1 and i == 9:
+            pos[i] = trans(pos[i-9],[0,0,60,0,0,0])
+    return pos        
+
+isgrip = False
+def grip(n,ad=None,val=None,n1=0):
+    global isgrip
+    if isgrip == n:
+        return -1
+    isgrip = 0 if n == -1 else 1
+    wait(0.08)
+    set_tool_digital_outputs([1*n,2*-n])
+    wait(0.15)
+    if None not in [ad,val]:
+        write(ad,val,n1)
+
+gp = [2.5,4]
+def gantry(mode,n):
+    global gp
+    li = [list(range(2,13,2)),list(range(1,18,2))][mode]
+    write(90,li[n])
+    wait(0.25 * abs(n - gp[mode]))
+    gp[mode] = n
+    
+il = lambda: [read(i) for i in range(65,73)]    # index table list
+def it(n,t = 0.6):
+    write(80 if n > 0 else 81,abs(n))
+    wait(t * abs(n))
+
+def getbr():
+    root = [None] * 3
+    leaf = [None] * 3
+    r = lambda n:'x' if read(n) == 9 else str(read(n))
+    tg = lambda n: n if n == '0' else str(int(n) - 3 if int(n) > 3 else int(n) + 3)    
+    root[0] = [r(i) for i in range(9)]
+    leaf[0] = [r(i) for i in range(9,18)]    
+    li = [r(i) for i in range(18,27)]
+    root[1] = li + li
+    li = [r(i) for i in range(36,45)]
+    li = [tg(i) for i in li] + li
+    leaf[1] = ['x' if root[1][i] == 'x' else li[i] for i in range(18)]    
+    root[2] = [r(i) for i in range(45,61)]
+    u = [r(i) for i in range(61,65)]
+    d = [tg(i) for i in u]
+    leaf[2] = u + u + d + d
+    leaf[2][root[2].index('x')] = 'x'
+    
+    return list(map(''.join,root)),list(map(''.join,leaf))
+   
+def Run(Type):
+    global r,l    
+    root,leaf = r[Type],l[Type]    
+    pos = posing(Type,POS[Type])
+    #res = main(Type,root,leaf)
+    res = [[[4, 7], [1, 4], [0, 1], [5, 8], [6, 5], [7, 6], [4, 7], [5, 4], [2, 5], [1, 2], [4, 1], 
+               [1, 0], [7, 4], [4, 1], [5, 4], [2, 5], [8, 7], [5, 8], [1, 2], [4, 1], [7, 4], [2, 5], 
+               [6, 7], [5, 6], [4, 5], [5, 2], [7, 4], [4, 5], [1, 4]],
+             [[13, 7], [10, 13], [13, 16], [12, 13], [9, 12], [1, 9], [13, 1], [12, 6], [11, 10], 
+                [10, 13], [2, 10], [13, 12], [10, 13], [9, 10], [10, 2], [12, 9], [13, 10], [3, 13], 
+                [6, 3], [16, 6], [10, 11], [13, 10], [4, 12], [17, 16], [16, 4], [6, 16], [12, 6], 
+                [9, 12], [16, 13], [12, 15], [7, 17], [15, 7], [0, 12], [13, 16], [10, 13], [11, 10], 
+                [10, 0], [12, 9], [9, 10], [16, 15], [15, 12], [12, 9], [17, 16], [16, 15], [15, 12], 
+                [8, 16], [16, 15], [13, 16], [16, 8], [10, 13], [9, 10], [13, 16], [12, 13], [15, 12], 
+                [12, 9], [13, 12], [10, 13], [9, 10], [10, 11], [16, 15], [0, 10], [8, 16]],
+             [[0, 4], [1, 0], [2, 1], [3, 2], [7, 3], [9, 10], [8, 9], [14, 13], [10, 14], [9, 10], 
+              [13, 9], [14, 13], [15, 14], [11, 15], [10, 11], [11, 7], [9, 8], [5, 9], [14, 10], 
+              [10, 11], [15, 14], [9, 10], [13, 9], [14, 13], [10, 14], [14, 15], [4, 5], [0, 4], 
+              [1, 0], [9, 10], [5, 9], [9, 5], [8, 9], [12, 8], [13, 12], [2, 1], [9, 13], [5, 9], 
+              [1, 5], [5, 1], [9, 5], [10, 9], [13, 14], [9, 13], [5, 9], [1, 5], [9, 10], [5, 9], 
+              [4, 5], [5, 1], [1, 2], [8, 4], [4, 5], [5, 1], [9, 5], [10, 9], [9, 8], [8, 4], [14, 10], 
+              [10, 9], [9, 8], [5, 9], [1, 5], [2, 1], [9, 10], [8, 9], [4, 8], [5, 4], [9, 5], [10, 9]]][Type]
+    
+    if Type == 0:
+        s = res[0][0]
+        ml(up(pos[s]))
+        ml(pos[s])
+        tp = s
+        for i in range(len(res)):
+            s,e = res[i]
+            if not isgrip:
+                pack = read(s)
+                aml(pos[s])
+                wait(0.1 * abs(tp - s))
+                grip(1,s,0)
+                wait(0.1)
+            if abs(s - e) == 3:
+                gantry(0,min(s,e))
+                aml(up(pos[s]))
+                ml(trans(up(pos[s]),[0,150,0,0,0,0]))
+                ml(trans(up(pos[e]),[0,150,0,0,0,0]))
+            ml(up(pos[e]))
+            if i+1 < len(res) and res[i+1][0] == e:
+                continue
+            ml(pos[e])
+            grip(-1,e,pack)
+            tp = e
+        ml([0,0,100,0,0,0], mod = 1)
+        
+    if Type == 1:
+        ### 2층에 팩을 놓을때는 팩을 위로 1정도 올려주면 좋을거 같음 ㅇㅇ
+        for i in range(8):
+            pack = read(69)
+            if pack in [0,7,8]:
+                it(1)
+                continue
+            ml(up(ip))
+            aml(ip)
+            grip(1,69,0)
+            ml(ip)
+            ml(up(ip,[100,80]))            
+            it(1,0)
+            n = root.index(str(pack)) + 9
+            ml(up(pos[n],[100,80]))
+            h = 20 if pack in [1,4] else 10 if pack in [3,6] else 0
+            ml(trans(pos[n],[0,0,-h,0,0,0]))
+            grip(-1,n,pack,1)
+            ml(up(pos[n]))
+            
+        for i in range(len(res)):
+            s,e = res[i]
+            
+            def down(pos):
+                n = read(pos,1)
+                return 20 if n in [1,4] else 10 if n in [3,6] else 0
+            
+            if not isgrip:
+                pack = read(s,1)
+                h = 0 if s < 9 else down(s - 9)
+                ml(up(pos[s]))
+                aml(trans(pos[s],[0,0,-h,0,0,0]))
+                grip(1,s,0,1)
+                wait(0.1)
+            
+            if s - e not in [-3,3,-1,1]:
+                ml(up(pos[min([s,e]) + 9]))
+            
+            ml(up(pos[e]))
+            
+            if i+1 < len(res) and res[i+1][0] == e:
+                continue
+                
+            h = 0 if e < 9 else down(e - 9)
+            ml(trans(pos[e],[0,0,-h,0,0,0]))
+            grip(-1,e,pack,1)
+            ml(up(pos[e]))
+            
+    if Type == 2:
+        t = lambda pos,n = 0: [pos[0],pos[1],pos[2],0 if n else 90,180,0]
+    
+        s = res[0][0]
+        movejx(up(pos[s]),250,250,sol = 2)
+        ml(up(pos[s],[5,5]))
+        tp = s # tool pos
+        
+        for i in range(len(res)):
+            s,e = res[i]
+            
+    
+    mj([90,0] * 3,150,150)
+            
+      
+rs()    # reset
+r,l = getbr()
+
+Run(2)

@@ -1,0 +1,12 @@
+Xp-Builder
+
+series: iXP Series
+model: iXP50-TTA
+제조자:LSIS
+제품:LSIS: XGB(CPU)
+
+1. 우클릭 -> 화면 속성 -> 배경 -> 4번째 
+2. 워드 램프 설정
+3. 복사 
+4. 문자열 
+ 

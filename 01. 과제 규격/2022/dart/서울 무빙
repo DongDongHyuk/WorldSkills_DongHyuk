@@ -1,0 +1,306 @@
+set_velx(1500), set_accx(3000), set_velj([150, 150, 180, 225, 225, 225]), set_accj([200, 200, 260, 350, 350, 500])
+set_tcp('tcp'), set_tool('tool')
+set_motion_end(DR_CHECK_OFF)
+
+TP_PRa = posx(-256.12, 193.43, 39.16, 42.3, 179.31, -47.32)
+TP_PRb = [posx(373.61, 317.62, 36.33, 35.48, 178.68, -54.4), 
+posx(244.82, 398.54, 37.16, 42.07, 178.8, -48.24)]
+TP_PRc1, TP_PRc2 = posx(-12.41, 524.09, 57.46, 40.49, 178.75, -49.82), 
+posx(-132.24, 524.61, 58.53, 52.66, 178.72,-37.79)
+TP_PRd = posx(-75.86, 332.08, 37.45, 34.61, 179.16, -55.21)
+TP_index = posx(353.75, 252.3, 108.05, 15.8, 178.99, -73.68)
+
+drl_report_line(OFF)
+
+from collections import deque
+from random import randint
+from time import time
+
+tools, ml, mj, mjx, w = set_tool_digital_outputs, movel, movej, movejx, wait
+
+
+def plc(dev, val=False):
+    ser = serial_open("COM")
+    if val:
+        if dev[1] == 'W':
+            t, val = '000' if int(val) <= 15 else ('00' if int(val) <= 255 else '0'), format(int(val), 'X')
+            if len(val) < 4: val = t + val
+        else:
+            val = '0' + val
+        code = [ord(i) for i in chr(5) + '00WSS0106%' + dev + val + chr(4)]
+    else:
+        code = [ord(i) for i in chr(5) + '00RSS0106%' + dev + chr(4)]
+    ser.write(bytearray(code));
+    w(0.02)
+    if val:
+        ser.read(ser.inWaiting())
+    else:
+        data = ser.read(ser.inWaiting()).decode()
+    serial_close(ser)
+    if not val:
+        if len(data) == 13: return int(data[11])
+        return int(data[10: 14], 16)
+
+
+def move(TP, y=0, x=0, z=0, lz=0, gr=0, val=0, n=0, r=0):
+    global TP_now
+    TP_next, r1, r2, r3 = trans(TP, [-40 * x, 40 * y, z, 0, 0, 0]), 0, 0, 0
+    
+    if get_distance(TP_now, TP_next) > 2:
+        r1 = get_distance(TP_now, TP_next) / 15
+    if z > 2:
+        r2 = z / 2 - 0.8
+    if lz > 2:
+        r3 = lz / 2 - 0.8
+        
+    if gr:
+        mjx(TP_next, sol=2, r=r1)
+        ml([0, 0, -z, 0, 0, 0], mod=1, r=r2), tools([1, -2]), w(0.13)
+        if r:
+            amovejx([0, 0, lz, 0, 0, r], mod=1, sol=2), w(0.3)
+        else:
+            ml([0, 0, lz, 0, 0, 0], mod=1, r=r3)
+    else:
+        mjx(trans(TP_next, [0, 0, 0, 0, 0, r]), sol=2, r=r1)
+        w(0.3) if r == -180 else w(0.1)
+        if TP in TP_PRb:
+            ml([0, 0, -z, 0, 0, 0], mod=1, r=1)
+        else:
+            ml(trans(TP_next, [0, 0, -z, 0, 0, 0]), r=1)
+        tools([-1, 2]), ml([0, 0, lz, 0, 0, 0], mod=1, r=1)
+    if val:
+        plc("DW" + str(val), str(n))
+    TP_now = trans(TP, [-40 * x, 40 * y, lz, 0, 0, 0])
+
+
+def Imove(index, p=1, g1=2, g2=1, c=450, n1=0, n2=0):
+    global TP_now
+    r, dir = {1: -180, 2: 90, 3: 0, 4: -90}, (n1, n2)
+    for i in range(2):
+        turn, T = Dir(index, p, 4)
+        amovej(ikin(trans(TP_index, [0, 0, 50, 0, 0, 0]), 2, DR_BASE))
+        TP_now = trans(TP_index, [0, 0, 50, 0, 0, 0])
+        index = Turn2(index, turn, "DW901" if T else "DW902")
+        plc("DW904", str(g1)), mwait(0)
+        #             tp      x  y  z   lz gp val
+        move(TP_index, 0, 0, 50, 50, 1, 704)
+        mjx(trans(TP_PRa, [Astart % 4 * -40, Astart // 4 * 40, 80, 0, 0, 0]), sol=2, r=10)
+        for R in MR: mjx(trans(TP_PRa, [R % 4 * -40, R // 4 * 40, 30, 0, 0, 0]), sol=2, r=19.8)
+        TP_now = trans(TP_PRa, [Aend % 4 * -40, Aend // 4 * 40, 100, 0, 0, 0])
+        ml([0, 0, 70, 0, 0, 0], mod=1, r=10), move(TP_PRc2, 0, 0, 20, 0, 0, c, p), plc("DW904", str(g2))
+        while not plc("MX005"): pass
+        move(TP_PRc1, 0, 0, 0, 80, 1, c)
+        if c == 450:
+            move(TP_PRb[i], start[i] // n[i], start[i] % n[i], 80, 60, 0, Plc[i] + start[i], dir[i], r[dir[i]]), plc(
+                "DW" + str(Plc[i] + start[i] - 50), '0')
+        else:
+            mjx(trans(TP_PRb[i], [end[i] % n[i] * -40, end[i] // n[i] * 40, 65, 0, 0, 0]), sol=2, r=3), tools(
+                [-1, 2]), mwait(0), ml([0, 0, 65, 0, 0, 0], mod=1, r=1), plc("DW" + str(Plc[i] + end[i]), '5')
+        index[4] = 0
+    return index
+
+
+def Ihmi(index):
+    for i in range(8): plc("DW" + str(700 + i), str(index[i]))
+
+
+def Turn(index, turn, val, Hmi=False):
+    if val:
+        for T in range(turn):
+            index.insert(0, index[7]);
+            del index[8]
+            if Hmi: Ihmi(index)
+    else:
+        for T in range(turn):
+            index.append(index[0]);
+            del index[0]
+            if Hmi: Ihmi(index)
+    return index
+
+
+def Turn2(index, turn, val):
+    plc(val, str(turn * 100))
+    index = Turn(index, turn, "DW901" == val, True)
+    while plc(val): pass
+    return index
+
+
+def Dir(index, P, Pos):
+    if index[Pos] == P: return 0, 0
+    indexR, indexL = index[:], index[:]
+    for i in range(1, 9):
+        indexR, indexL = Turn(indexR, 1, 1), Turn(indexL, 1, 0)
+        if indexR[Pos] == P:
+            return i, 1
+        elif indexL[Pos] == P:
+            return i, 0
+
+
+def HS(PR, Start, End, m, n, RCheck=True):
+    PR[Start], PR[End], DQ, key = 0, -1, deque([End]), False
+    for c1, c2 in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        if 0 <= Start // n + c1 < m and 0 <= Start % n + c2 < n and (
+                not PR[Start + c1 * n + c2] or Start + c1 * n + c2 == End):
+            key = True;
+            break
+    if not key:
+        return False
+    key = False
+    for c1, c2 in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        if 0 <= End // n + c1 < m and 0 <= End % n + c2 < n and (
+                not PR[End + c1 * n + c2] or End + c1 * n + c2 == Start):
+            key = True;
+        break
+    if not key:
+        return False
+    while DQ:
+        Node = DQ.popleft()
+        for c1, c2 in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            if 0 <= Node // n + c1 < m and 0 <= Node % n + c2 < n and not PR[Node + c1 * n + c2]:
+                PR[Node + c1 * n + c2] = PR[Node] - 1
+                if Node + c1 * n + c2 == Start: break
+                DQ.append(Node + c1 * n + c2)
+    if not PR[Start]:
+        return False
+    if not RCheck:
+        return True
+    Node, MR = Start, [Start]
+    for Plus in range(PR[Start], 0):
+        for c1, c2 in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            if 0 <= Node // n + c1 < m and 0 <= Node % n + c2 < n and PR[Node + c1 * n + c2] == Plus:
+                Node += c1 * n + c2;
+                MR.append(Node);
+                break
+    return MR
+
+
+def FindRoute(PR, m, n, index):
+    Check = ((-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1), (0, -1), (-1, -1))
+    Ps = [pos for pos in range(m * n) if PR[pos] and PR[pos] != 9]
+    DQ, PR_EX = deque([[PR, Ps, (), 0, 0, index]]), set([tuple(PR)])
+    while DQ:
+        PR, Ps, R, turn, Pack, index = DQ.popleft()
+        if len(R) > 15: continue
+        if turn:
+            indexR, indexL = Turn(index[:], turn, 1), Turn(index[:], turn, 0)
+        else:
+            indexR, indexL = [], []
+        for P in Ps:
+            Npack = PR[P]
+            if (Pack > 10 and Npack > 10) or (Pack < 10 and Npack < 10 and Pack): continue
+            for indexFor, Count in [[index, 0], [indexR, 1], [indexL, 2]]:
+                if not indexFor: continue
+                R_tmp, turn2 = tuple(R), turn
+                if Count == 1: R_tmp, turn2 = R_tmp + tuple('R'), 0
+                if Count == 2: R_tmp, turn2 = R_tmp + tuple('L'), 0
+                indexDict, indexDir = {1: [pos for pos in range(8) if indexFor[pos] == 1],
+                                       2: [pos for pos in range(8) if indexFor[pos] == 2]}, 1 if Npack < 10 else 2
+                for Dir in indexDict[indexDir]:
+                    c1, c2 = Check[Dir]
+                    y, x = P // n + c1, P % n + c2
+                    if 0 <= y < m and 0 <= x < n and not PR[y * n + x]:
+                        while Npack % 10 == 2 and 0 <= y + c1 < m and 0 <= x + c2 < n and not PR[
+                            (y + c1) * n + (x + c2)]: y, x = y + c1, x + c2
+                        PR_tmp = PR[:]
+                        PR_tmp[y * n + x], PR_tmp[P] = PR_tmp[P], 0
+                        if tuple(PR_tmp) in PR_EX: continue
+                        PR_EX.add(tuple(PR_tmp))
+                        Ps_tmp = Ps[:]
+                        Ps_tmp.remove(P);
+                        Ps_tmp.append(y * n + x)
+                        if not PR_tmp[Astart] and not PR_tmp[Aend] and HS(PR_tmp[:], Astart, Aend, m, n, False): print(
+                            indexFor, Dir); return R_tmp + tuple([(P, y * n + x)]), HS(PR_tmp, Astart, Aend, m, n)
+                        DQ.appendleft([PR_tmp, Ps_tmp, R_tmp + tuple([(P, y * n + x)]), turn2 + 1, Npack, indexFor])
+    return False, False
+
+
+def _PRb(PRb1, PRb2, B1start, B2start, B1end, B2end):
+    CheckDir = {1: {1: (-1, 0), 2: (0, 1), 3: (1, 0), 4: (0, -1)}, 2: {1: (0, 1), 2: (1, 0), 3: (0, -1), 4: (-1, 0)},
+                3: {1: (1, 0), 2: (0, -1), 3: (-1, 0), 4: (0, 1)}, 4: {1: (0, -1), 2: (-1, 0), 3: (0, 1), 4: (1, 0)}}
+    PRb1[B1end], PRb2[B2end] = 0, 0
+    DQ = deque([[PRb1, PRb2, B1start, B2start, ()]])
+    Time = time()
+    while DQ:
+        PRb1, PRb2, B1now, B2now, R = DQ.popleft()
+        if time() - Time > 300: return False
+        for Dir in range(1, 5):
+            DQ_dict, Now_dict, R_dict = {}, {}, {}
+            for B in range(2):
+                R_tmp = tuple(R)
+                PRb, Now, m, n = [PRb1[:], B1now, 4, 3] if not B else [PRb2[:], B2now, 3, 4]
+                c1, c2 = CheckDir[PRb[Now]][Dir]
+                if 0 <= Now // n + c1 < m and 0 <= Now % n + c2 < n and not PRb[Now + c1 * n + c2]:
+                    _dir = Change[PRb[Now]][Dir]
+                    PRb[Now + c1 * n + c2], PRb[Now] = _dir, 0
+                    R_dict[B], Now_dict[B] = (Now, Now + c1 * n + c2), Now + c1 * n + c2
+                else:
+                    R_dict[B], Now_dict[B] = (), Now
+                DQ_dict[B], R_dict[2] = PRb, Dir
+            if not R_dict[0] and not R_dict[1]: continue
+            R_tmp += tuple([tuple(R_dict.values())])
+            if DQ_dict[0][B1end] and DQ_dict[1][B2end]: print(DQ_dict); return R_tmp
+            DQ.append([DQ_dict[0], DQ_dict[1], Now_dict[0], Now_dict[1], R_tmp])
+
+Change = {1: {1: 1, 2: 2, 3: 3, 4: 4}, 2: {1: 2, 2: 3, 3: 4, 4: 1}, 3: {1: 3, 2: 4, 3: 1, 4: 2},
+          4: {1: 4, 2: 1, 3: 2, 4: 3}}
+mj([90, 0, 90, 0, 90, 0], r=10), tools([-1, 2]), mjx(trans(TP_PRa, [0, 0, 50, 0, 0, 0]), sol=2, r=10);
+TP_now = trans(TP_PRa, [0, 0, 50, 0, 0, 0])
+
+tp_log('start')
+index = [plc("DW" + str(700 + i)) for i in range(8)]
+PRa = [plc("DW" + str(100 + pos)) for pos in range(24)]
+Astart, Aend = plc("DW500") - 1, plc("DW501") + 19
+PRb1, PRb2 = [plc("DW" + str(200 + pos)) for pos in range(12)], [plc("DW" + str(300 + pos)) for pos in range(12)]
+B1start, B2start = [pos for pos in range(12) if 0 < PRb1[pos] < 5][0], [pos for pos in range(12) if 0 < PRb2[pos] < 5][
+    0]
+B1end, B2end = [pos for pos in range(12) if PRb1[pos] == 5][0], [pos for pos in range(12) if PRb2[pos] == 5][0]
+B1n, B2n = PRb1[B1start], PRb2[B2start]
+Ad1, Ad2 = Astart, Aend
+PRa[Ad1], PRa[Ad2] = 0, 0
+MRa, MR = FindRoute(PRa, 6, 4, index)
+tp_log(str(MRa))
+MRb = _PRb(PRb1, PRb2, B1start, B2start, B1end, B2end)
+tp_log(str(MRb))
+while not plc("PX001"): pass
+plc("DW900", '5')
+
+for D in [[Ad1, 0], [Ad2, 1]]:
+    move(TP_PRa, D[0] // 4, D[0] % 4, 35, 70, 1, 100 + D[0])
+    move(TP_PRd, x=D[1], z=70, lz=35)
+
+turn = 0
+for R in MRa:
+    if R == 'R':
+        index, turn = Turn2(index, turn, "DW901"), 0
+    elif R == 'L':
+        index, turn = Turn2(index, turn, "DW902"), 0
+    else:
+        turn += 1
+        r, num = 0, plc("DW" + str(100 + R[0]))
+        if not (R[0] - R[1]) % 5:
+            r = 45
+        elif not (R[0] - R[1]) % 3:
+            r = -45
+        move(TP_PRa, R[0] // 4, R[0] % 4, 35, 15, 1, 100 + R[0], r=r)
+        move(TP_PRa, R[1] // 4, R[1] % 4, 15, 35, 0, 100 + R[1], num, r=r)
+    plc("DW150", str(turn))
+
+tp_log(str(index))
+start, end, n, Plc = [B1start, B2start], [B1end, B2end], [3, 4], [250, 350]
+index = Imove(index, n1=B1n, n2=B2n)
+
+r = {1: 0, 2: -90, 3: -180, 4: 90}
+
+Bdir = [B1n, B2n]
+for R in MRb:
+    for i in range(2):
+        if not R[i]:
+            continue
+        else:
+            Bdir[i] = Change[Bdir[i]][R[2]]
+            plc("DW180", str(R[2]))
+            move(TP_PRb[i], R[i][0] // n[i], R[i][0] % n[i], 60, 30, 1, Plc[i] + R[i][0], 0, r[R[2]])
+            move(TP_PRb[i], R[i][1] // n[i], R[i][1] % n[i], 30, 60, 0, Plc[i] + R[i][1], Bdir[i], r[R[2]])
+
+index = Imove(index, 2, 4, 3, 451)
+plc("DW900", '5')

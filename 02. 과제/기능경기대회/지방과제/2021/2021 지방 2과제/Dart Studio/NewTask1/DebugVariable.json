@@ -1,0 +1,39 @@
+{
+  "Count": "6",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "indexT",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "pack",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "pos_count",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "pointA_save_1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "pointA_save_2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable5": {
+    "Type": "Debug",
+    "Name": "pointA_save",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

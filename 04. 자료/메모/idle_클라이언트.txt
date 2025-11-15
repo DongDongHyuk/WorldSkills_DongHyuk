@@ -1,0 +1,10 @@
+from socket import *
+n = [1,2,3]
+#열기
+clSk = socket(AF_INET, SOCK_STREAM)
+#연결
+clSk.connect(('192.168.137.100', 20001))
+#읽기
+A = eval(clSk.recv(1024).decode('utf-8'))
+#쓰기
+clSk.send(bytes(str(n),'utf-8'))

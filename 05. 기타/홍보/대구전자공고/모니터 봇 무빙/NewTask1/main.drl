@@ -1,0 +1,32 @@
+set_tool("Tool Wei"); set_tcp("전기그리퍼") 
+
+isGrip = True
+
+def grip(n):
+    global isGrip
+    set_tool_digital_outputs([1*n,2*-n])
+    isGrip = bool(1 if n == 1 else 0)    
+
+class monitbot_moving_dlc:
+
+    def home(self):
+        movel(posx(-4.75, 165.43, 750.02, 89.29, 90.31, 89.22),800,600)
+    
+    def __init__(self,accx,velx,blend):
+        set_accx(accx); set_velx(velx)
+        begin_blend(blend)
+        grip(-1)
+        self.home()
+        
+    def rythmta(self,turn: int,axis: str):
+        z,y = 0,0
+        down = [0,-60,0,0,-20,0] if axis == 'y' else [0,0,-60,0,-20,0]
+        up = list(map(abs,down))        
+        for _ in range(int(turn)):
+            movel(down, mod = 1)
+            movel(up, mod = 1)
+        
+move = monitbot_moving_dlc(2000,1800,14)
+
+move.rythmta(999,'z')
+

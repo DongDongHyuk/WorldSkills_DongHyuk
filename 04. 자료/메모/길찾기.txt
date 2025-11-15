@@ -1,0 +1,50 @@
+1. 상하좌우 0 이면 현재 자리 +1 값 넣기(갑 넣을때 마다 count + 1)
+2. 
+def up_down_left_right(b):
+    global point, count
+    point += 1
+    count = 0
+    if A[yv[0]-1][xv[0]] == 0: # 상
+        A[yv[0]-1][xv[0]] = point
+        if b == 1:
+            nextY[count] = yv[0]-1
+            nextX[count] = xv[0]
+        count += 1;
+    if A[yv[0]+1][xv[0]] == 0: # 하
+        A[yv[0]+1][xv[0]] = point
+        if b == 1:
+            nextY[count] = yv[0]+1
+            nextX[count] = xv[0]
+        count += 1;
+    if A[yv[0]][xv[0]+1] == 0: # 좌  
+        A[yv[0]][xv[0]+1] = point
+        if b == 1:
+            nextY[count] = yv[0]
+            nextX[count] = xv[0]+1
+        count += 1;
+    if A[yv[0]][xv[0]-1] == 0: # 우
+        A[yv[0]][xv[0]-1] = point
+        if b == 1:
+            nextY[count] = yv[0]
+            nextX[count] = xv[0]-1
+        count += 1;
+        
+# 1. 무작위로 값 넣기 
+while yv[0] != yv[1] or xv[0] != xv[1]:
+    up_down_left_right(1)
+    wait(2)
+    for i in range(count):
+        wait(3)
+        yv[0] = nextY[i] 
+        xv[0] = nextX[i]
+        up_down_left_right(1)
+        wait(2)
+
+	if A[yv[0]-1][xv[0]] == 0: # 상
+            A[yv[0]-1][xv[0]] = point         
+       	if A[yv[0]+1][xv[0]] == 0: # 하
+            A[yv[0]+1][xv[0]] = point         
+        	if A[yv[0]][xv[0]+1] == 0: # 좌  
+            A[yv[0]][xv[0]+1] = point          
+        	if A[yv[0]][xv[0]-1] == 0: # 우
+            A[yv[0]][xv[0]-1] = point

@@ -1,0 +1,78 @@
+# 1. header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(400)
+begin_blend(10)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos,sol=-1):
+    movejx(pos,sol = sol if sol != -1 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [260,260,260][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    if n != -1 and n == tool:
+        return -1
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+    write(10,n,b=False)
+    wt(t * abs(n))
+    return 0.5 * abs(n)
+gp = 4.5
+def gt(n,t=3):
+    global gp
+    if n == gp:
+        return -1
+    write(20,n,b=False)
+    wt(t *  abs(gp - n))
+    n1 = 0.1 * abs(gp - n)
+    gp = n
+    return n1
+
+# - get positions
+def ps(pos,y,x,z=1,sy=40,sx=40,sz=20):
+    s1 = y * x
+    s2 = s1 * z
+    pos = [pos] * s2
+    for i in range(1,s2):
+        if not i % s1:
+            pos[i] = tr(pos[i-s1],[0,0,sz,0,0,0])
+        elif i % x:
+            pos[i] = tr(pos[i - 1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = tr(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+poss = [
+[ps(posx(-360.95, 56.87, 230.17, 89.79, -90, -90),4,5),
+None],
+[None,
+ps(posx(68.37, 393.63, 185.02-20, 0.71, -90, 90),1,4,4,sx = 22)]] 
+A1 = ps(posx(-420.51, 256.53, 231.01, 90.01, -90.04, -90.02),2,2)
+itp = posx(399.52-1, 121.94-1, 287.69+8, 90.34, 90, 90)
+gtp = [
+posx(168.79, 504.54, 249.76, 89.57, 90, 90),                # elc gripper
+posx(-158.04, 505.79, 164.83+20, 90.68, 89.99, -90)]        # air agripper

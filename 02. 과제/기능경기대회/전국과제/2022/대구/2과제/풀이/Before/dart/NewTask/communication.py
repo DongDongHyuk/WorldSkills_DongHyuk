@@ -1,0 +1,29 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in[w,r]:
+    i[1:-1] = list(map(lambda a: ord(a),i[1:-1]))
+
+def write(ad, val):
+    ser = serial_open(port = 'COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad % 100)//10))
+    w[15] = ord(str(ad % 10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad % 100)//10))
+    r[15] = ord(str(ad % 10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.Waiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n    

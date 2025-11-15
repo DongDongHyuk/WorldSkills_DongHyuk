@@ -1,0 +1,1 @@
+A = [[for x in range(b)]for y in range(a)] # 내포 함수

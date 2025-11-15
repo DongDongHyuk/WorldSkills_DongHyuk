@@ -1,0 +1,26 @@
+from collections import deque
+import datetime
+
+def prt(kind: 1 or 2,result,size = "none",enter = -1):
+    horizontal,vertical = map(int,size.split("x")) # size    
+    # 2차원 
+    print_for_2dimentions = lambda: list(map(lambda a:tp_log(a),result))
+    # 1차원
+    def print_for_1dimentions():
+        count = 0
+        for i in result:
+            count += 1
+            tp_log(i) if count % vertical == 0 else tp_log(i,end =" ")        
+    if kind == 1:
+        print_for_1dimentions() # 1차원
+    else: print_for_2dimentions() # 2차원
+    if enter != -1: tp_log(enter)
+    
+def main():
+    pass
+
+start = datetime.datetime.now()
+main()
+end = datetime.datetime.now()
+h,m,s = str(end-start).split(":")
+tp_log("{}분 {}초".format(m,s))

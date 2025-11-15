@@ -1,0 +1,45 @@
+; DocuCentre-IV 2060/3060/3065
+
+[DrvName]
+FX DocuCentre-IV 2060 PCL 6=STDPDL
+FX DocuCentre-IV 3060 PCL 6=STDPDL
+FX DocuCentre-IV 3065 PCL 6=STDPDL
+FX ApeosPort-IV 2060 PCL 6=STDPDL
+FX ApeosPort-IV 3060 PCL 6=STDPDL
+FX ApeosPort-IV 3065 PCL 6=STDPDL
+
+[Tool]
+Version_of_Tool_IF=1.00
+Version_of_Tool=1.0.1
+URI=ToolPack.exe
+Size=1111
+CheckCode=ffff
+
+[Driver]
+Version_of_Drv_IF=1.00
+
+[DLCtlgSection]
+Win95=DCIV2060AP_95
+Win98_Me=DCIV2060AP_98
+WinNT4=DCIV2060AP_NT
+Win2000_XP=DCIV2060AP_2K
+WinXP_x64=DCIV2060AP_x64
+
+[OriginalDrvDir]
+Win95=..\..\PCL\Win95
+Win98_Me=..\..\PCL\Win98_Me
+WinNT4=..\..\PCL\NT40
+Win2000_XP=..\..\PCL\i386\001
+WinXP_x64=..\..\PCL\amd64\001
+VerUpExe=..\..\EzInst
+
+[UpdatedDrvDir]
+Win95=Win95
+Win98_Me=Win98_Me
+WinNT4=NT40
+Win2000_XP=i386
+WinXP_x64=amd64
+
+[VerUpFlag]
+VerUpFlagForUpdate=/FXIV306530602060
+

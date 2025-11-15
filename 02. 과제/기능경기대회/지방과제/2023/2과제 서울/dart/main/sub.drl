@@ -1,0 +1,2 @@
+pass
+set_tool_digital_outputs([1,-2])

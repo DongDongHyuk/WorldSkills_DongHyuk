@@ -1,0 +1,33 @@
+
+
+[ Sort ]
+- Before
+개선 전
+>>>
+visited : 5588
+29step, idle 0.12s(DART-Studio 0m 30s)
+
+- fail1
+옮길 팩이 지나온 길에 팩을 채우며 정렬
+>>>
+visited : ?
+35step, idle 0.091s(DART-Studio 0m 22s)
+
+- perf1 ( fail2 )
+F A I L E D
+
+- perf2 ( Solved 'perf1' Issue )
+옮길 팩으로 0을 sort로 가져오기
+>>>
+visited : 109
+29step, idle 0.008s(DART-Studio 0m 2s)
+
+- perf3
+길게 보기
+
+- perf4
+길게 보기 + 'exp'에 Queue 추가
+
+[ Other Perf ]
+- Factory
+- fix: list -> dict or set

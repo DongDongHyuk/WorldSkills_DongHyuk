@@ -1,0 +1,287 @@
+from collections import deque
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+drl_report_line(OFF)
+
+def exc(m,s,e):
+    m = list(m)
+    m[s],m[e] = m[e],'0'
+    return ''.join(m)
+    
+def exp(mode,m,pos=None):
+    res = []
+    dxy = [-5,1,5,-1]
+    wall = [[0,1,2,3,4],[4,9,14,19,24],[20,21,22,23,24],[0,5,10,15,20]]
+    li = [i for i in range(25) if m[i] == '0' and i not in fix] if mode else [pos]
+    for pos in li:
+        for i in range(4):
+            npos = pos + dxy[i]
+            if pos not in wall[i] and \
+                m[npos] not in ['9','0' if mode else None] and npos not in fix:
+                    res.append(exc(m,pos,npos) if mode else npos)
+    return res
+    
+def bfs(mode,m,*n):
+    if not mode:
+        s,e = n
+    else:
+        li,pos,pack = n
+    cur = m if mode else s
+    que = deque([cur])
+    mkd = {cur:'s'}
+    while 1:
+        cur = que.popleft()
+        if not mode and cur == e:
+            break
+        if mode:
+            if not any([int(cur[i]) for i in li]) and \
+                (None in [pos,pack] or cur[pos] == pack):
+                    break
+        for i in exp(mode,cur if mode else m,cur):
+            if i not in mkd:
+                mkd[i] = cur
+                que.append(i)
+    mkd['e'] = cur
+    return (mkd,cur) if mode else mkd
+    
+def path(mkd):
+    cur = mkd['e']
+    path = [cur]
+    while mkd[cur] != 's':
+        cur = mkd[cur]
+        path.append(cur)
+    return path[::-1][1:]
+    
+def con(res):
+    path = []
+    fir = res[0]
+    for sec in res[1:]:
+        step = [None] * 2
+        for i in range(25):
+            if fir[i] != sec[i]:
+                if fir[i] == '0':
+                    step[1] = i
+                else:
+                    step[0] = i
+        path.append(step)
+        fir = sec[:]
+    return path
+    
+def main(mode,m,*n):
+    global fix
+    fix = []
+    m = ''.join(m)
+    if not mode:
+        s,e = n
+        res = [s]
+        res += path(bfs(0,m,s,e))
+        return res
+    else:
+        li,pos,pack = n
+        res = [m]
+        iss = False
+        if li:
+            for i in li:
+                res0 = exp(0,m,i)
+                if m[i] != '0' and res0 == [pos]:
+                    iss = True
+                if len(res0) == 2 and pos in res0:
+                    j = [j for j in res0 if j != pos][0]
+                    if exp(0,m,j) == [i] and [m[i],m[j]] != ['0','0']:
+                        iss = True
+        if not iss:
+            fix.append(pos)
+            if pos in li:
+                li.remove(pos)
+        for i in range(1,len(li)+1):
+            mkd,m = bfs(1,m,li[0:i],None,None)
+            res += path(mkd)
+        if iss and m[pos] != pack:
+            e = pos
+            pli = [i for i in range(25) if m[i] == pack]
+            def dist(s,e):
+                s,e = map(lambda n:divmod(n,5),[s,e])
+                return abs(s[0] - e[0]) + abs(s[1] - e[1])
+            s = min(pli,key = lambda n:dist(n,e))
+            r = main(0,m,s,e)
+            for i in r:
+                mkd,m = bfs(1,m,[j for j in li if i != j],i,pack)
+                res += path(mkd)
+        return con(res),list(m)
+        
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R  S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = map(ord,i[1:-1])
+    
+def write(ad,val,abs=1):
+    val += (10 * (gate.index(ad)+1) if abs != -1 and ad in gate else 0)
+    ser = serial_open('COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord('0') if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open('COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+    
+set_tcp('전기그리퍼'); set_tool('tool wei')
+set_velx(1500); set_accx(5000)
+set_velj(225); set_accj(350)
+begin_blend(50)
+ml,mj,mjx,aml,amj = movel,movej,movejx,amovel,amovej
+rml = lambda h,t = None:ml([0,0,h,0,0,0],mod=1,time=t)
+def arml(h,t=0.025):
+    aml([0,0,h,0,0,0],mod=1)
+    wait(t)
+H = [150,30]
+up = lambda pos,h=None:trans(pos,[0,0,(h if h else H)[isgrip],0,0,0])
+sl = lambda pos,abc=[0,0,0]:trans(pos,[0,0,0]+abc)
+us = lambda pos,abc,h=None:up(sl(pos,abc),h)
+
+pos = [posx(-180.16, 281.32, 13.01+3, 82.79, -179.58, -7.28)] * 25
+for i in range(1,25):
+    if i % 5:
+        pos[i] = trans(pos[i-1],[-40,0,0,0,0,0])
+    else:
+        pos[i] = trans(pos[i-5],[0,40,0,0,0,0])
+posB = [posx(338.41, 351.94, 4.2+1.5, 90.46, 114.95, 90.12),
+            posx(338.41-40, 351.94-10, 4.2+1, 90.46, 114.95, 90.12),
+            posx(338.41-80, 351.94-20, 4.2+1, 90.46, 114.95, 90.12)]
+            
+isgrip = False
+def grip(n,ad=-1,val=-1,t=None):
+    global isgrip
+    if n == isgrip:
+        return -1
+    isgrip = 0 if n == -1 else 1
+    set_tool_digital_outputs([1*n,2*-n])
+    wait(t if t else (0.25 if n == 1 else 0.15))
+    if -1 not in [ad,val]:
+        write(ad,val)
+        
+def Run():
+    global gate
+    grip(-1)
+    br = [str(read(i)) for i in range(25)]
+    gate = [0] * 5
+    for i in range(25):
+        if int(br[i]) >= 10:
+            gate[int(br[i][0])-1]=i
+            br[i] = br[i][1]
+    p2p = {}
+    ct = [0,0,0]
+    def update(pos,pack):
+        p2p[pos],br[pos] = pack,str(pack)
+        ct[pack - 1] += 1
+        write(pos,pack+1)
+    for i in [i for i in range(25) if br[i] == '1']:
+        if len([j for j in ct if j == 3]) == 2:
+            break
+        mjx(up(pos[i],[50,50]),a=250,sol=2)
+        for j in range(2):
+            if i in p2p:
+                break
+            h = [20,10][j]
+            aml(up(pos[i],[h,h]),t=[0.3,0.2][j])
+            if not j and ct[2] == 3:
+                continue
+            grip(1,-1,-1,0)
+            wait(0.45)
+            isg = not get_tool_digital_input(1)
+            pack = [1,2][isg] if j else [0,3][isg]
+            if isg or j:
+                update(i,pack)
+            grip(-1,-1,-1,0.25)
+        rml(50,0.3)
+    pack = [i+1 for i in range(3) if ct[i] < 3][0]
+    for i in range(25):
+        if br[i] == '1' and i not in p2p:
+            update(i,pack)
+    B = [[],[],[]]
+    li = [3,3,3,2,2,2,1,1,1]
+    li0 = [0,0,0,1,1,1,2,2,2]
+    li1 = main(0,br,gate[0],gate[1])
+    def mg(pos,n,ad,val,h=None):
+        mjx(up(pos,h),sol=2)
+        ml(pos)
+        grip(n,ad,val)
+    for i in range(9):
+        pack = li[i]
+        for j in range(2):
+            if not j:
+                e = gate[pack + 1]
+                pli = [k for k in range(25) if br[k] == str(pack)]
+                def dist(s,e):
+                    s,e = map(lambda n:divmod(n,5),[s,e])
+                    return abs(s[0] - e[0]) + abs(s[1] - e[1])
+                s = min(pli,key = lambda n:dist(n,e))
+                r = main(0,br,s,e)
+            else:
+                g = e
+                s,e,r = gate[0],gate[1],li1[:]
+            road = r[:] if j else r[1:]
+            fp = [g if j else s,str(pack)]
+            res,br = main(1,br,road,fp[0],fp[1])
+            if j and res:
+                rml(50,0.3)
+            if res:
+                for k in range(len(res)):
+                    S,E = res[k]
+                    if not isgrip:
+                        p = read(S)
+                        p = int(str(p)[1]) if p >= 10 else p
+                        mg(pos[S],1,S,0)
+                    ml(up(pos[E]),a=2500)
+                    if k + 1 < len(res) and E == res[k+1][0]:
+                        continue
+                    ml(pos[E],a=3000)
+                    grip(-1,E,p)
+                    ml(up(pos[E]))
+            abc = [0,[0,-25][j],0]
+            if not j and s != e:
+                mg(pos[s],1,s,0)
+                br[s] = '0'
+            if j:
+                mjx(up(pos[g],[120,0]),sol=2)
+                aml(sl(pos[g],abc))
+                wait(0.15)
+                grip(1,g,0)
+                br[g] = '0'
+                ml(us(pos[g],abc,[0,120]))
+                ml(us(pos[s],abc,[0,120]),a=2500)
+                ml(us(pos[s],abc))
+            for k in r[1:]:
+                ml(us(pos[k],abc),a=2000)
+            if not j and s != e:
+                ml(pos[e],a=3000)
+                grip(-1,e,pack + 1)
+                br[e] = str(pack)
+        rp = li0[i]
+        arml(100)
+        mjx(up(posB[rp],[0,200]),150,550,sol=2)
+        ml(up(posB[rp],[0,20*len(B[rp])]),a=3000)
+        wait(0.1)
+        grip(-1,25 + i,pack)
+        B[rp].append(pack)
+        if i != 8:
+            rml(100,0.5)
+            amj([90,0]*3,a=300)
+            wait(0.5)
+write(99,1,-1)
+Run()
+write(99,1,-1)

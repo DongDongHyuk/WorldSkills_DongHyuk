@@ -1,0 +1,323 @@
+drl_report_line(OFF)
+printf = lambda n: tp_log("{}".format(n))
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = list(map(lambda a: ord(a),i[1:-1]))
+
+def write(ad,val):
+    ser = serial_open(port = "COM")
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open(port = "COM")
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+
+A = [posx(328.78, 321.93, 185, 90, 180, 0)] * 10
+B = [posx(58.03, 380.68, 185, 90, 180, 0)] * 6
+C = [posx(-171.48, 280.22, 185, 90, 180, 0)] * 24
+
+for_li = [0,1,6,7,2,3,8,9,4,5]
+for i in for_li:
+    count = for_li.index(i)
+    if count == 0: continue
+    if count % 4 == 0: A[i] = trans(A[for_li[count-4]],[0,40,0,0,0,0]) 
+    else: A[i] = trans(A[for_li[count-1]],[-40,0,0,0,0,0])
+for i in range(1,6):
+    if i == 4: B[i] = trans(B[1],[0,40,0,0,0,0])
+    else: B[i] = trans(B[i-1],[-40,0,0,0,0,0])
+for i in range(1,24):
+    if i == 12: C[i] = trans(C[2],[-40,0,0,0,0,0])
+    else:
+        if i % 3 == 0: C[i] = trans(C[i-3],[0,40,0,0,0,0])
+        else: C[i] = trans(C[i-1],[-40,0,0,0,0,0])
+
+up_pos = [[0,0,2,0,0,0],[0,0,38,0,0,0],[0,0,65,0,0,0]]
+way_point = posx(0, 450, 300, 90, 180, 0)
+
+A_1 = [0] * 4
+A_2 = [read(i) for i in range(29,35)]
+B_1 = [1,0,0,0]
+B_2 = 1
+C_1 = [read(i) for i in range(1,10)]
+C_3 = [read(i) for i in range(13,22)]
+C_2 = [9,0,0]
+C_4 = [9,0,0]
+
+def read_board(li):
+    for i in [1,1,2,2]: li[li.index(0)] = i
+
+goal_br = C_1[:]
+br = C_3[:]
+read_board(br)
+serch_result = [0] * 3
+recode = []; br_list = []; br_list2 = []
+G = 1; F = []
+
+mr = lambda li: [li[i-1] for i in [3,2,1,6,5,4,9,8,7]]
+recoding = lambda li: recode.append(li[:])
+
+def MHT():
+    mht = []; result = 0
+    y = [1,1,1,2,2,2,3,3,3]; x = [1,2,3,1,2,3,1,2,3]
+    for i in range(9):
+        if br[i] != goal_br[i] and br[i] != 0:
+            s = [y[i],x[i]]
+            for j in range(9):
+                if br[i] == goal_br[j]:
+                    a = [y[j],x[j]]
+                    mht.append(abs(s[0]-a[0])+abs(s[1]-a[1]))
+            result += min(mht)
+    F.append(G + result); br_list.append(br)
+
+def cases(board, serch, fix3, get):
+    if board == "global": global br
+    else: br = board[:]
+    save = br[:]
+    for i in range(9):
+        if br[i] == 0:
+            for j in [-3,3,-1,1]:
+                dire = i + j
+                if i in [2,5] and j == 1: continue
+                if i in [3,6] and j == -1: continue
+                if -1 < dire < 9 and br[dire] != 0:
+                    if fix3 == "true" and br[dire] == 3: continue
+                    br[i] = br[dire]
+                    br[dire] = 0
+                    if serch == "astar": MHT()
+                    else: get.append(br)
+                    br = save[:]
+
+def reset():
+    del recode[:], br_list[:], br_list2[:], F[:]
+    G = 1
+
+def Optimizing():
+    global recode
+    new_recode = []; result = []
+    recode = recode[::-1]
+    br = recode[0]
+    new_recode.append(br[:])
+    while br != recode[-1]:
+        cases(br,"Optimizing","false",br_list2)
+        for i in recode[recode.index(br):]:
+            if i in br_list2: result.append(i)
+        br = result[-1]
+        new_recode.append(br)
+    printf("complete !!! step: {}".format(len(new_recode)-1))
+    return new_recode[::-1]
+
+def select_astar(count = 0):
+    global br
+    while True:
+        count += 1
+        for i in range(len(F)):
+            if F[i] == count and br_list[i] not in recode:
+                br = br_list[i]
+                recoding(br)
+                return -1
+
+def select_random():
+    global br
+    for i in br_list:
+        if i not in recode:
+            br = i
+            recoding(br)
+            return -1
+
+def converter(li):
+    if len(li) == 1: return -1
+    new_li = []
+    for i in range(len(li)):
+        for j in range(9):
+            if li[i+1][j] == 0 and li[i][j] != 0: a = j
+            if li[i][j] == 0 and li[i+1][j] != 0: b = j
+        new_li.append(a)
+        new_li.append(b)
+        if li[i+1] == li[-1]:
+            return new_li
+            
+def astar():
+    global br,goal_br,G
+    recoding(br)
+    while br != goal_br:
+        G += 1
+        cases("global","astar","false",[])
+        select_astar()
+        del F[:],br_list[:]
+    return Optimizing()
+
+def random_serch():
+    global goal_br,br
+    goal_br = mr(goal_br)
+    recoding(br)
+    while br != goal_br:
+        cases("global","random","true",br_list)
+        select_random()
+    return Optimizing()
+# ==========================
+set_velx(3000); set_accx(1500)
+    
+buzz = lambda a: write(50,a)
+
+def grip(n,ad = "none",val = "none"): 
+    wait(0.1)
+    set_tool_digital_outputs([1*n,2*-n])
+    if  "none" not in [ad,val]: write(ad,val) 
+    wait(0.05)
+
+def moves(_pos,ad = "none",val = "none"):
+    movel(trans(_pos,up_pos[1]))
+    movel(_pos)
+    grip(1,ad,val)
+    
+def movea(_pos,ad = "none",val = "none",_buzz = -1):
+    grip(-1,ad,val)
+    if _buzz != -1: buzz(_buzz)
+    movel(trans(_pos,up_pos[1]))
+    
+#1: close / 0: open
+def open_close(n):    
+    global B_2
+    if B_2 == n: return -1
+    B_2 = n
+    moves(B[5-n],40-n,0)
+    movec(trans(B[4+n],[0,5,5,0,0,0]),trans(B[4+n],up_pos[0]),2000,1200)    
+    movea(B[4+n],39+n,3,2)
+
+def up_down(a):
+    s = B_1.index(1)
+    if s == a-1: return -1
+    B_1[s] = 0
+    open_close(1)
+    moves(B[s],35+s,0)
+    movec(trans(B[a-1],[0,-5,5,0,0,0]),trans(B[a-1],up_pos[0]),2000,1200)
+    movea(B[a-1],35+a-1,3)
+    B_1[a-1] = 1
+    open_close(0)
+    
+# 팩 놓기 
+def put_pack():
+    global A_1
+    for i in range(2):
+        now_pack = A_1[1-i]        
+        if i == 0:movel(trans(A[7-i],up_pos[1]))
+        else: movec(way_point,trans(A[7-i],up_pos[1]))
+        movel(A[7-i])
+        grip(1)
+        write(26-i,0)
+        A_1[1-i] = 0
+        movel(trans(A[7-i],up_pos[2]))        
+        if now_pack != 3: 
+            movec(way_point,trans(C[12+C_3.index(0)],up_pos[2])) #왼쪽 위부터 팩이 없는곳
+            movel(C[12+C_3.index(0)])
+            movea(C[12+C_3.index(0)],13+C_3.index(0),now_pack)            
+            C_3[C_3.index(0)] = now_pack            
+        else:   # 3 팩일때 
+            movec(way_point,trans(C[21+C_4.index(0)],up_pos[2]))
+            movel(C[21+C_4.index(0)])
+            movea(C[21+C_4.index(0)],22+C_4.index(0),now_pack)            
+            C_4[C_4.index(0)] = now_pack
+    
+#팩 싣기
+def load_pack(): 
+    global A_2,C_2
+    num_li = [3,1,3,1,2,2]        
+    for i in [0,2,4]:
+        for l in range(2):
+            n = A_2.index(num_li[i+l])
+            f = 4 if n in [0,1]else 3 if n in [2,3] else 2
+            my_seat = 6+A_1.index(0)
+            
+            up_down(f) #[0,1/2,3/4,5]            
+            moves(A[n],29+n,0)
+            A_2[n] = 0
+            A_1[A_1.index(0)] = num_li[i+l]
+            movec(trans(A[my_seat],[0,0,40,0,0,0]),trans(A[my_seat],up_pos[0]),1200,1200)            
+            movea(A[my_seat],my_seat+19,num_li[i+l])            
+        up_down(1) # 1층으로
+        put_pack() # 0 ~ 1
+        
+    for i in range(35,41):
+        if read(i) == 3:
+            moves(B[i-35],i,0) 
+            movec(trans(B[i-35],[-1,0,3,0,0,0]),trans(C[9+C_2.index(0)],up_pos[2]))
+            movel(C[9+C_2.index(0)])
+            movea(C[9+C_2.index(0)],10+C_2.index(0),3)
+            C_2[C_2.index(0)] = 3
+                
+def serch():
+    global serch_result,br,goal_br
+    serch_result[0] = converter(random_serch()) # C - 3 거울 배치    
+    br = mr(C_1[:]); goal_br = [1,1,1,2,2,2,3,0,0]
+    reset()# reset
+    
+    serch_result[2] = converter(astar()) # C - 3 재배치 
+    br = C_1[:]
+    reset()# reset
+    
+    serch_result[1] = converter(astar()) # C - 1 재배치
+    printf("serch_completed !!! ")
+                
+def solving_puzzle():
+    global serch_result,C_1,C_3
+    maintain = count = 0    
+    # 거울 배치, C - 3 재배치, C - 1 재배치
+    err = [12,0,12] # 오차
+    for li in serch_result: # 거울 배치. 재 배치
+        for j in range(0,len(li),2):
+            s = err[count]+li[j] # 옮길 팩 위치 = 오차 + 현재 위치 
+            a = err[count]+li[j+1]  # 옮길 위치 = 오차 + 다음 위치
+            if maintain == 0: moves(C[s])
+            else: maintain = 0
+            num = read(s+1)
+            write(s+1,0)
+            movec(trans(C[a],[0,0,1,0,0,0]),C[a],2000,1200)
+            if j+2 < len(li):
+                if li[j+1] != li[j+2]: movea(C[a])
+                else: maintain = 1
+            else:  movea(C[a])
+            write(a+1,num)  
+        count += 1
+        if li == serch_result[0]: # 거울 배치 짧게 두번
+            buzz(2)
+            wait(0.31)
+            buzz(2)            
+    for i in [[10,7],[11,8],[22,19],[23,20]]:
+        moves(C[i[0]],i[0]+1,0)
+        movec(trans(C[i[0]],[0,0,1,0,0,0]),C[i[1]],2000,1200)
+        movea(C[i[1]],i[1]+1,3)
+    buzz(3) # 완성 부저
+            
+def test():
+    begin_blend(10)
+    grip(-1) # grip off
+    #movej([90,0,90,0,90,0],40,40)
+    #movel(trans(B[0],up_pos[1]))
+    serch() # 보드 계산
+    while True:
+        if get_digital_input(1) == 0: continue
+        buzz(1)# 0.5
+        load_pack() # 팩 옮기기
+        solving_puzzle() # 정렬
+        return 1
+        
+test()

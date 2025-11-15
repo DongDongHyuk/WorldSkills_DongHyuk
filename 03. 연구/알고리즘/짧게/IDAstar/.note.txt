@@ -1,0 +1,24 @@
+해야 되는거
+[o] 휴리스틱 O(n) -> O(1) 옮긴 타일거리만 계산 | 노드 39240개 방문(2.7s -> 0.6s)
+[x] 선형 충돌 + 고정 팩
+[x] A* -> IDA* 
+[x] pattern databases
+
+휴리스틱 연구 논문 사이트
+https://medium.com/swlh/looking-into-k-puzzle-heuristics-6189318eaca2
+
+IDA* 구현 유튜브
+https://www.youtube.com/watch?v=kodg9NEKl0U
+
+-선형 충돌
+
+Board
+0 2 1
+3 4 5
+6 7 8
+
+a = 1
+b = 2 
+
+a(1)와 b(2)가 모두 같은 줄에 있고 a(1)과 b(2)의 목표 위치가 모두 해당 줄에 있고 
+a(1)가 b(2)의 오른쪽에 있고 목표 위치가 a(1)의 b(2)의 목표 위치 왼쪽에 있습니다.

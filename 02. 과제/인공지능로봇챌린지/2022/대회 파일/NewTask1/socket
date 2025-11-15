@@ -1,0 +1,9 @@
+from DRCF import *
+printf = lambda *n: tp_log(''.join(map(str,n)))
+
+def open_server(value,port = 20001):
+    Sock = server_socket_open(port)
+    server_socket_write(Sock,str(value).encode('utf-8'))
+    result = eval(server_socket_read(Sock,timeout=-1)[1].decode('utf-8'))
+    server_socket_close(Sock)
+    return result

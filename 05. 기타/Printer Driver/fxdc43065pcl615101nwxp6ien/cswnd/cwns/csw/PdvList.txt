@@ -1,0 +1,5 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; DocuCentre-IV 2060/3060/3065
+;;; ApeosPort-IV 2060/3060/3065
+PdvDCIV2060AP.dll
++Plugin\PSW\PSWDCIV2060APPlugin.xpi		= CSW

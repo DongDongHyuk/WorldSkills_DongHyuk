@@ -1,0 +1,46 @@
+import time as t
+speed = 300
+set_velx(speed); set_accx(speed)   
+#P O S X 
+A = [posx(327.98, 320.06, 185, 90, 180, 0)] * 10
+B = [posx(58.03, 378.17, 185, 90, 180, 0)] * 6
+C = [posx(-171.48, 280.22, 185, 90, 180, 0)] * 24
+
+# Apal
+for i in range(1,10):
+    if i in [2,4,8]: A[i] = trans(A[i-2],[0,40,0,0,0,0])
+    else: A[i] = trans(A[i-1],[-40,0,0,0,0,0])
+    if i == 6: A[i] = trans(A[7],[-40,0,0,0,0,0])
+# Bpal  
+for i in range(1,6): 
+    if i == 4: B[i] = trans(B[i-4],[-40,40,0,0,0,0])
+    else: B[i] = trans(B[i-1],[-40,0,0,0,0,0])
+# Cpal
+for i in range(1,24):
+    if i == 12: C[i] = trans(C[2],[-40,0,0,0,0,0])
+    else:
+        if i % 3 == 0:  C[i] = trans(C[i-3],[0,40,0,0,0,0])
+        else: C[i] = trans(C[i-1],[-40,0,0,0,0,0])   
+up_pos = [[0,0,5,0,0,0],[0,0,38,0,0,0],[0,0,65,0,0,0]]#up_poslist
+        
+def moving(n):
+    global speed
+    speed = 3000 if n == 1 else 1500
+    set_velx(speed); set_accx(speed)   
+    begin_blend(10)
+    if n == 1: 
+        movel(trans(A[4],up_pos[1]))
+        movel(A[4])
+        movel(trans(A[4],up_pos[2]))
+        movel(trans(A[6],up_pos[2]))
+        movel(A[6])
+    if n == 2:
+        movel(trans(A[4],up_pos[1]))
+        movel(A[4])
+        movec(trans(A[6],[0,0,40,0,0,0]),A[6])
+  
+start = t.time()
+moving(2)
+tp_log("{}".format(t.time() - start))
+movel(trans(A[4],up_pos[1]))
+    

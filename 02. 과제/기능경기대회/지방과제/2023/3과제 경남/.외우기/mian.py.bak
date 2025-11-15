@@ -1,0 +1,250 @@
+from collections import deque
+tl = lambda *n: tp_log(' '.join(map(str,n)))
+drl_report_line(OFF)
+
+def exc(m,s,e):
+    m = list(m)
+    m[s],m[e] = m[e],'0'
+    return ''.join(m)
+
+def exp(m):
+    res = []
+    li = [i for i in range(8) if m[i] == '0' and i not in fix]
+    for pos in li:
+        for npos in range(8):
+            if m[npos] != '0' and npos not in fix + [pos]:
+                res.append(exc(m,pos,npos))
+    return res
+
+def bfs(m,pos):
+    que = deque([m])
+    mkd = {m:'s'}
+    while 1:
+        cur = que.popleft()
+        if cur[pos] == leaf[pos]:
+            break
+        for  i in exp(cur):
+            if i not in mkd:
+                mkd[i] = cur
+                que.append(i)
+    mkd['e'] = cur
+    return mkd,cur
+
+def path(mkd):
+    cur = mkd['e']
+    path = [cur]
+    while mkd[cur] != 's':
+        cur = mkd[cur]
+        path.append(cur)
+    return path[::-1][1:]
+
+def con(res):
+    path = []
+    fir = res[0]
+    for sec in res[1:]:
+        step = [None] * 2
+        for i in range(8):
+            if fir[i] != sec[i]:
+                if fir[i] == '0':
+                    step[1] = i
+                else:
+                    step[0] = i
+        path.append(step)
+        fir = sec[:]
+    return path
+
+def main(m,tf = False):
+    global fix,leaf
+    leaf = m[:]
+    leaf.sort()
+    leaf = leaf[::-1] if tf else leaf[2:]+[0,0]
+    sqc = [i for i in leaf if i != 0]
+    cvt = lambda li: ''.join(['0' if i == 0 else str(sqc.index(i)+1) for i in li])
+    m,leaf = map(cvt,[m,leaf])
+    res = [m] 
+    fix = [i for i in range(6) if m[i] == leaf[i]]   
+    for i in range(6):
+        mkd,m = bfs(m,i)
+        res += path(mkd)
+        fix.append(i)
+    return con(res)
+    
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4]  * 2
+
+for i in [w,r]:
+    i[1:-1] = map(ord,i[1:-1])
+    
+def write(ad,val,abs=0):
+    ad += [0,17,20][abs]
+    ser = serial_open('COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord('0') if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad,abs=0):
+    ad += [0,17,20][abs]
+    ser = serial_open('COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+    
+set_tcp('전기그리퍼'); set_tool('tool wei')
+set_velx(1500); set_accx(5000)
+set_velj(225); set_accj(350)
+begin_blend(50)
+ml,mj,mjx,aml,amj,t = movel,movej,movejx,amovel,amovej,trans
+rml = lambda h,t = None: ml([0,0,h,0,0,0],mod = 1,time = t)
+def arml(h,t= 0.025):
+    aml([0,0,h,0,0,0], mod = 1)
+    wait(t)
+H = [150,30]
+up = lambda pos,h = None: trans(pos,[0,0,(h if h else H)[isgrip],0,0,0])
+
+def posing(pos,y,x):
+    s = y * x
+    pos = [pos] * s
+    for i in range(1,s):
+        if i % x:
+            pos[i] = trans(pos[i-1],[-40,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,40,0,0,0,0])
+    return pos        
+    
+A = posing(posx(-279.63+60, 282.09, 75.31, 0, 180, 0),4,4)
+C = posing(posx(79.15, 360.75, 15.85, 0, 180, 0),1,6)
+itp = posx(297.51, 355.95, 82.77, 0, 180, 0)
+gtp = [posx(140.38, 540.11, 36.1, 0, 180, 0),
+         posx(-129.42, 541.04, 35.98, 0, 180, 0)]
+        
+its = deque([0,1,2,3,4,5,6,7])
+itl = lambda:[read(i) for i in range(68,76)]
+def it(n,t = 0.62):
+    global its
+    if not n:
+        return -1
+    write(80 if n > 0 else 81,abs(n))
+    wait(t * abs(n))
+    its.rotate(n)
+    
+def gantry(n,t = 1.8):
+    write(90,n)
+    wait(t)
+
+isgrip = False
+def grip(n,dev = [],t = None):
+    global isgrip
+    if n == isgrip:
+        return -1
+    isgrip = 0 if n == -1 else 1
+    if n == -1:
+    	wait(0.1)
+    set_tool_digital_outputs([1*n,2*-n])
+    wait(t if t else (0.25 if n == 1 else 0.15))
+    if dev:
+        ad,val,abs = dev
+        write(ad,val,abs)    
+
+def Run(tf = False):
+    grip(-1)
+    res = main(itl(),tf)
+    mjx(up(itp), sol = 2)
+    for pos in res:
+        for i in range(2): 
+            ct = list(its).index(pos[i])
+            it(-ct if ct < 5 else 8 - ct)
+            ml(t(itp,[0,0,[0,30][i],0,0,0]))
+            if not i:
+                pack = read(68)
+                grip(1,[68,0,0])
+                rml(30,0.3)
+            else:
+                rml(-30,0.3)
+                grip(-1,[68,pack,0])
+            arml(100)
+    ct = list(its).index(0)
+    it(-ct if ct < 5 else 8 - ct)
+    if tf:
+        wait(0.5)
+        it(3)
+    cli = []
+    gantry(1,0.8)
+    while len(cli) != 6:
+        gli = []
+        while 1: 
+            pack = read(68)
+            if gli and sum(gli) + pack > 80 or len(gli) == 3:
+                break
+            mjx(up(itp), sol = 2)
+            ml(itp)
+            grip(1,[68,0,0])
+            arml(100)
+            it([-1,1][tf],0)
+            x = -40 * len(gli)
+            ml(t(gtp[0],[x,0,100,0,0,0]))
+            ml(t(gtp[0],[x,0,0,0,0,0]),a = 3000)
+            grip(-1,[17 + len(gli),pack,0])
+            gli.append(pack)
+            arml(100)
+        gantry(2)
+        keys = '_123456789+_x___='
+        kb = [keys[read(i)] for i in range(16)]
+        geth = lambda pack: 20 if pack in '1234=' else 10 if pack in '56789' else 0
+        for i,pack in enumerate(gli):
+            if pack < 10:
+                sik = keys[pack] + '='
+            else:
+                li = []
+                for m1 in range(1,10):
+                    for m2 in range(1,10):
+                        for a1 in range(10):
+                            for a2 in range(10):
+                                if ((m1 * m2) + (a1 + a2)) == pack:
+                                    n = '{}x{}+{}+{}='.format(m1,m2,a1,a2)
+                                    li.append(n.replace('+0','').replace('x1','').replace('1x',''))
+                sik = min(li,key=len)
+			wait(0.1)
+            ml(t(gtp[1],[-40 * i,0,100,0,0,0]))
+            ml(t(gtp[1],[-40 * i,0,0,0,0,0]))
+            grip(1,[17 + i,0,0])
+            arml(100)
+            if i == len(gli)-1:
+                gantry(1,0)
+            write(16,pack)
+            for s in sik:
+                pos = kb.index(s)
+                h = geth(s)
+                ml(up(A[pos],[0,150]))
+                ml(t(A[pos],[0,0,-h,0,0,0]),a = 3000)
+                grip(-1,[pos,keys.index(s) + 16,0],0)
+                wait(0.015)
+                grip(1,[pos,keys.index(s),0],0)
+            arml(100)
+            n =  8 * len(cli)
+            write(20 + n,pack)
+            for j,s in enumerate(sik[:-1]):
+                write((21+j) + n,keys.index(s))
+            n = len(cli)
+            mjx(up(C[n],[0,150]), sol = 2)
+            ml(C[n],a =3000)
+            grip(-1)
+            write(16,0)
+            cli.append(pack)
+            if len(cli) != 6:
+                arml(100)
+
+write(99,1)
+Run()
+write(99,1)

@@ -1,0 +1,42 @@
+﻿[UpArrow]
+Path=Line Alternative.cur
+
+[Wait]
+Path=Line Busy.ani
+
+[SizeNWSE]
+Path=Line Diagonal Resize 1.cur
+
+[SizeNESW]
+Path=Line Diagonal Resize 2.cur
+
+[NWPen]
+Path=Line Handwriting.cur
+
+[Help]
+Path=Line Help.cur
+
+[SizeWE]
+Path=Line Horizontal Resize.cur
+
+[Hand]
+Path=Line Link.cur
+
+[SizeAll]
+Path=Line Move.cur
+
+[Arrow]
+Path=Line Normal + Precision.cur
+
+[IBeam]
+Path=Line Text.cur
+
+[No]
+Path=Line Unavailable.cur
+
+[SizeNS]
+Path=Line Vertical Resize.cur
+
+[AppStarting]
+Path=Line Working in Background.ani
+

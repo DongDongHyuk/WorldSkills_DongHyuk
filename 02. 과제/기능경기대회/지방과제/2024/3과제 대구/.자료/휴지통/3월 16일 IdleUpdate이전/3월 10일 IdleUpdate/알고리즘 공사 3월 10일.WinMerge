@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+	<paths>
+		<left>D:\02. 산업용로봇\05. 교육\2024 지방과제풀이\3과제 대구\idleBC\3월 10일 IdleUpdate\New</left>
+		<middle>D:\02. 산업용로봇\05. 교육\2024 지방과제풀이\3과제 대구\idleBC\3월 10일 IdleUpdate\Old</middle>
+		<right>D:\02. 산업용로봇\05. 교육\2024 지방과제풀이\3과제 대구\idleBC\3월 10일 IdleUpdate\Dart</right>
+		<filter>*.*</filter>
+		<subfolders>1</subfolders>
+		<left-readonly>0</left-readonly>
+		<middle-readonly>0</middle-readonly>
+		<right-readonly>0</right-readonly>
+		<white-spaces>2</white-spaces>
+		<ignore-blank-lines>0</ignore-blank-lines>
+		<ignore-case>0</ignore-case>
+		<ignore-carriage-return-diff>0</ignore-carriage-return-diff>
+		<ignore-numbers>0</ignore-numbers>
+		<ignore-codepage-diff>0</ignore-codepage-diff>
+		<ignore-comment-diff>0</ignore-comment-diff>
+		<compare-method>0</compare-method>
+	</paths>
+</project>

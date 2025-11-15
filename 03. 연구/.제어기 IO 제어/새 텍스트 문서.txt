@@ -1,0 +1,3 @@
+제어기 배선( VIO - 버튼 - I01 ~ I16 ) 
+제어기 설정
+Workcel Manager - Safety I/O - 설정

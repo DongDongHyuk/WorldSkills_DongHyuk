@@ -1,0 +1,7 @@
+port = 20001
+#열기
+sock = server_socket_open(port)
+#쓰기
+server_socket_write(sock, '시발'.encode	('utf-8'))
+#읽기
+v = eval(server_socket_read(sock, timeout=1)[1].decode('utf-8'))

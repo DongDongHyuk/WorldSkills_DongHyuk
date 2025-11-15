@@ -1,0 +1,476 @@
+def exc(m,s,e=-1,g=-1,p=-1,gli=-1,li=-1):
+    m = list(m)
+    if g != -1:
+        isg = g == 1
+        pack = m[s] if isg else p
+        gp = gli.index('0' if isg else p)
+        gli = list(gli)
+        gli[gp] = pack if isg else '0'
+        m[s] = '0' if isg else p
+    else:
+        m[s],m[e] = m[e],m[s]
+        pack = m[s]
+        step = li if li != -1 else [e,s]
+    pack = 'abc'.index(pack)+10 if pack.isalpha() else int(pack)
+    info = [s,g,pack,gp] if g != -1 else [step,pack]
+    if g == -1 and m[e] != '0':
+        info.append(int(m[e]))
+    return [(''.join(m),tuple(gli)) if t == 3 else ''.join(m),info]    
+def aro(pos):
+    if pos in cache:
+        return cache[pos]
+    res = []
+    dy,dx = [-1,0,1,0],[0,1,0,-1]
+    y,x = divmod(pos,sx)
+    for i in range(4):
+        ny,nx = y + dy[i],x + dx[i]
+        if -1 < ny < sy and -1 < nx < sx:
+            res.append(ny * sx + nx)
+    cache[pos] = res
+    return res
+def exp(n,m,pos=-1):
+    if t == 3:
+        m,gli = m
+    res = []
+    if t == 2:
+        for i in range(8):
+            for j in range(8):
+                if i != j and all([k not in fix for k in [i,j]]):
+                    res.append(exc(m,i,j))
+        return res
+    for i in range(size * sz) if n > 0 else [pos]: 
+        if i in fix:
+            continue
+        if t == 3:
+            if m[i] == '0' and gli.count('0') < 2 and (i > 5 or m[i + 2] == '0') and (i < 3 or m[i - 2] != '0'):        # put a pack
+                for p in gli:
+                    if p != '0':                        
+                        res.append(exc(m,i,g=0,p=p,gli=gli))
+            if gli.count('0') < 1:      # used all gripper
+                continue
+            if m[i] != '0' and (i > 5 or m[i + 2] == '0'):      # get a pack
+                res.append(exc(m,i,g=1,gli=gli))
+            continue
+        if (n == -1 or n > 0) and m[i] != '0':
+            continue
+        for j in [j for j in aro(i) if m[j] not in ['x','0x'][n > 0] and j not in fix]:            
+            res.append(exc(m,i,j) if n > 0 else [j,j])
+    return res
+def bfs(n,m,*a):
+    global res
+    if n == -1:
+        s, = a
+    if n == 0:
+        s,e = a
+    if n == 1:
+        leaf,pos,pack = a
+    if n == 2:      # used A
+        li,st,ct = a
+    if n == 3:      # used A
+        leaf,li = a
+    cur = m if n > 0 else s
+    que = deque([cur])
+    mkd,step = {cur:-1},{cur:-1}
+    while 1:
+        cur = que.popleft()
+        if n == -1 and m[cur] != '0':
+            break
+        if n == 0 and cur == e:
+            break
+        if n == 1:
+            cur1 = cur[0] if t == 3 else cur
+            if (pos == -1 and cur1 == leaf) or (pos != -1 and cur1[pos] == pack):
+                break
+        if n == 2:            
+            if st[:ct] in ''.join([cur[i] for i in li if cur[i] != '0'])[:ct]:
+                break
+        if n == 3 and all([cur[i] == leaf[i] for i in li]):
+            break
+        for i,j in exp(n,cur if n > 0 else m,cur):
+            if i not in mkd:
+                que.append(i)
+                mkd[i],step[i] = cur,j
+    mkd[-2] = cur
+    path = [step[cur]]
+    while mkd[cur] != -1:
+        cur = mkd[cur]
+        path.append(step[cur])
+    if n > 0:
+        res += path[::-1][1:]
+        return mkd[-2]
+    return path[::-1][1:]    
+def sort(m,leaf,e,p=-1):
+    pack = leaf[e] if p == -1 else p
+    b = len(exp(0,m,e)) == 1 
+    if b:
+        m = bfs(1,m,leaf,e,'0')
+    s = m.index(pack)
+    r = bfs(0,m,s,e)
+    if b:
+        fix.append(e)
+    for i in r:
+        if b and i in fix:
+            fix.remove(i)
+        m = bfs(1,m,leaf,i,pack)
+    fix.append(e)
+    return m
+def main(g_t,m,*a):    
+    global t,sy,sx,sz,size,fix,res,cache
+    t = g_t
+    sy,sx,sz = [[5,5,1],[4,4,1],[1,8,1],[1,2,4]][t]
+    size = sy * sx
+    fix = []
+    res = []
+    cache = {}      # cache reset
+    if t == 0:
+        leaf, = a
+        hold = {}
+        unhold = []
+        leafc = leaf[:]
+        for i in [1,3,5,9,15,19,21]:
+            pack = leaf[i]
+            if pack == '0' or pack in hold:
+                r = [i]+bfs(-1,leafc,i)
+                pos = r[-1]
+                pack = leafc[pos]
+                hold[pack] = r
+                unhold.append(pack)
+                leafc = list(leafc)
+                leafc[pos] = '0'
+                leafc = ''.join(leafc)
+            m = sort(m,None,i,pack)        
+        li1 = [6,7,8,13,18,17,16,11]
+        li2 = [6,7,8,13,18,23,17,16,11]
+        st = ''.join([leaf[i] for i in li2 if leaf[i] not in unhold + ['0']])
+        for i in range(6):
+            m = bfs(2,m,li1,st,i)        
+        fix.append(23)
+        if leaf[23] not in unhold + ['0']:
+            m = bfs(1,m,leaf,18,leaf[23])
+            m,step = exc(m,23,18)
+            res.append(step)
+        m = bfs(3,m,leaf,[leaf.index(m[i]) for i in li1 if m[i] != '0'])
+        for pack in unhold[::-1]:
+            r = hold[pack]            
+            m,step = exc(m,r[-1],r[0],li=r)
+            res.append(step)
+    if t == 1:
+        leaf, = a
+        for i in [1,2,7,11,14,13,8,4]:
+            m = sort(m,leaf,i)
+    if t == 2:
+        li = [1,0,2,3,4,5,6,7,8]
+        for i in range(8):
+            j = (4 + li[i]) % 8
+            print(j,str(i+1))
+            m = bfs(1,m,None,j,str(i+1))
+            fix.append(j)
+        res.append([[4,5],2,1])
+    if t == 3:
+        li = [sorted([i for i in m if i in st]) for st in ['2468','1357']]
+        leaf = ['0']*8
+        for i in range(2):
+            li1 = li[i][::-1]
+            for j in range(3):
+                leaf[i+(2 * j)] = li1[j]
+        m = (m,('0','0'))
+        for i in range(6):
+            m = bfs(1,m,None,i,leaf[i])
+            fix.append(i)
+    return res
+
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei'); set_tcp('tcp')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(400)
+begin_blend(10)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos,sol=-1):
+    movejx(pos,sol= sol if sol != -1 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,acc=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [300,280,400,300][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    if n == tool:
+        return -1
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.2)
+        write(40,n,b=False)
+        wt(0.2)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+itp = 4
+def it(n,t=0.6):
+    global itp
+    write(10,n,b=False)
+    wt(t * abs(n))
+    itp += (n * -1)
+gp = 2
+def gt(n,t=1.2):
+    global gp
+    if n == gp:
+        return -1
+    write(20,n,b=False)
+    wt(t *  abs(gp - n))
+    gp = n
+
+ser=serial_open("COM")
+def ts(ad,m=[],y=0,x=0,b=True):
+    if b:
+        ad += 100 * (1 + T)
+    k='00'+['W','R'][bool(y)]+'SB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not y else y*x
+    ad = [0]*(3-len(str(ad))) + list(map(int,str(ad)))
+    k+=[ord(str(abs(i))) for i in ad]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not y:
+        for i in m:
+            if i<0:
+                i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.02 if n is 1 else 0.05)
+    k=ser.read(ser.inWaiting())
+    if y:
+        for i in range(0,y*x*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):
+                v-=2**16 
+            m.append(v)
+        return m if len(m) > 1 else m[0]
+def write(*a,b = True):
+    if isinstance(a[0],int):
+        a = [a]
+    for i,j in a:
+        ts(i,j if isinstance(j,list) else [j],b=b)
+def read(ad,y=1,x=1,b=1):
+    return ts(ad,[],y,x,b=b)
+    
+root = [-1] * 4
+leaf = [-1] * 4
+for i in range(3):
+    T = i
+    y,x = [5,4,1][i],[5,4,8][i]
+    root[i] = read(0 if i < 2 else 1,y,x)[:]
+    if i < 2:
+        leaf[i] = read(y*x,y,x)[:]
+root[3] = []
+m = leaf[0][:]
+itli = [i+1 for i in range(8)]
+for i in range(2):
+    li = []
+    a,b = 0,0
+    for _ in range(2):
+        j = [i for i in range(25) if 0 < m[i] < 7][0]
+        li.append(m[j])
+        [a,b][m[j] % 2] += 1
+        m[j] = 0
+    for _ in range(4):
+        j = [i for i in [itli[i] for i in range(8)] if i > 0 and [a,b][i % 2] < 3][0]
+        li.append(j)
+        [a,b][j % 2] += 1
+        itli[j - 1] = 0
+    li = [li[i] for i in [0,3,1,4,2,5]]
+    root[3].append(li+[0,0])
+    
+def con(t,m):
+    li = [[0,2,4,10,12,14,20,22,24],[0,3,12,15],[],[]][t]
+    return ''.join(['abc'[m[i]-10] if m[i] >= 10 else 'x' if i in li else str(m[i]) for i in range(len(m))])
+for i in range(3):
+    root[i] = con(i,root[i])
+    if i < 2:
+        leaf[i] = con(i,leaf[i])
+root[3] = [con(3,root[3][0]),con(3,root[3][1])]
+
+def ps(pos,y,x,z=1,sy=40,sx=40,sz=20):
+    a = y * x
+    s = y * x * z
+    pos = [pos] * s
+    for i in range(1,s):
+        if not i % a:
+            pos[i] = trans(pos[i-a],[0,0,sz,0,0,0])
+        elif i % x:
+            pos[i] = trans(pos[i-1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+
+elcA = ps(None,5,5)
+elcB = ps(None,4,4)
+elcIT = [None]
+elcGTin = ps(None,1,2,3,sx=80)
+elcGTout = ps(None,1,2,3,sx=80)
+elcGT = ps(None,1,2,4,sx=80)
+airA = ps(None,5,5)
+airB = ps(None,4,4)
+airIT = [None]
+airGT = ps(None,1,2,4,sx=80)
+poss = [[elcA,None,elcIT,elcGT],[None,airB,airIT,airGT]]
+
+def mt1(p,g,d=[],mod=0,h=-1,z=0,b1=True,b2=False,a1=1000,a2=1000,sol=-1,rx=0):
+    tp = tr(pos[p] if type(p) == int else p,[0,0,-z,0,0,0])   
+    mjx(up(tp,mod,h),sol=sol) if sol != -1 else ml(up(tp,mod,h),a=a1)
+    if b2:
+        return -1
+    ml(tp,a=a2,r = 5)
+    if rx:
+        mt2(rx)
+    if T != 3 and not g and not tool:
+        rml(z=-0.15,acc = 300)
+    grip(g)
+    if rx:
+        rml(z=60)
+    if d:
+        ad,val = d
+        write(ad,val)
+    if b1:
+        ml(up(tp)) if h < 60 else ml(up(tp,mod,h))
+        
+def mt2(rx):
+    wait(0.5)
+    set_tcp('elc')
+    movel([0,0,0,0,0,rx],mod = 1,ref = DR_TOOL)
+    wait(0.1)
+    set_tcp('tcp')
+
+def pz(t,p):
+    li1 = [[],[1,2,3,4],[1,2,3,4]][t]
+    li2 = [[1,2,3,4,5,6,7,8,9,10,11,12],[],[]][t]
+    return 20 if p in li1 else 10 if p in li2 else 0
+def RunAB():
+    for i,j in enumerate(res):
+        li,p = j
+        s,e = li[0],li[-1]
+        a = res[i-1][1] if i else -1
+        b = res[i+1][1] if i < len(res)-1 else -1
+        b1,b2 = p == b,p == a
+        z = 0 if T == 0 else (20 if p < 5 else 0)
+        if not b2:
+            mt1(s,1,[s,0],z=z,a1=[2000,1000][T],b1=0)
+            rml(z=3,acc=[800,300][T])
+        if len(li) > 2:
+            for i in li[1:-1]:
+                mt1(i,1,[],1,3,b2=1)
+        mt1(e,0,[e,p],1,3,z=z,b2=b1,a1=[2000,1000][T],a2=[800,100][T])
+def RunIT():
+    global itp
+    for i in res:
+        li,p1,p2 = i
+        s,e = li
+        mt1(0,0,b2=1)
+        wait(0.5)
+        for i in range(4):
+            j,p = [s,e,e,s][i],[0,0,p1,p2][i]            
+            n = abs(itp - j) * (1 if itp > j else -1)            
+            z = 20 if i % 2 and p2 < 5 else 0
+            isg = i < 2
+            if not isg:
+                z -= 1.5
+            it(n)
+            mt1(0,isg,[5,p],z = z,a2 = 1000 if isg else 500)
+            cht()
+def RunGT(res):
+    global T,pos
+    T,pos = 3,poss[tool][3]
+    zm = [pz(0 if i in [0,2] else 2,read(i)) for i in range(6)]+[0,0]
+    gli = [-1]*2
+    for i in res:
+        s,g,p,gp = i
+        cht(n = gp)
+        mt1(s,g,[s,0 if g else p],0,350)        
+        if g:
+            gli[gp] = zm[s]
+        zm[s] = 0 if g else gli[gp]
+    T,pos = -1,-1
+    return zm
+def AtoB():
+    li1 = [i for i in range(25) if leaf[0][i] in '789abc']
+    li2 = [i for i in [5,6,9,10]]
+    li3 = [read(125+i,b=0) for i in li1]
+    for s,e,p in zip(li1,li2,li3):
+        mt1(airA[s],1,[100+s,0],0,400,z=12,sol=3)
+        mt1(airB[e],0,[216+e,p],0,400,z=10,sol=3)       
+def AandITtoB():
+    for i in range(2):
+        gt(1)
+        res = ress[3][i]
+        gtli = root[3][i]
+        for j in range(6):
+            pos1 = [0,2,4,1,3,5][j]
+            pack = gtli[pos1]
+            if j < 2:
+                i = leaf[0].index(pack)
+                mt1(elcA[i],1,[100+i,0],0,400,rx = -30)
+            else:
+                while read(305,b=0) != int(pack):
+                    it(-1)
+                rml(x=300)
+                mt1(elcIT[0],1,[305,0],0,400,rx = -30)
+                rml(y=300)
+            mt1(elcGTin[pos1],0,[400+pos1,int(pack)],0,400,-3)
+        gt(2)
+        zm1 = RunGT(res)
+        cht(n=0)
+        mj([90,0,90,90,90,0])
+        gt(3)
+        for j in range(6):
+            pos1 = [4,2,0,5,3,1][j]         # 겐트리에서 가져올 팩 순서
+            pack = read(400+pos1)           # 켄트리에서 잡을 팩
+            m = read(216,4,4)               # B info
+            zm2 = [pz(0 if i in [5,6,9,10] else 1,m[i]) for i in range(16)]            # B pack height info
+            pos2 = [i for i in range(16) if 0 < m[i] < 100 and zm1[pos1] + zm2[i] == 20][0]         # 팩 둘곳
+            mt1(elcGTout[pos1],1,[400+pos1,0],0,400)
+            pack = m[pos2]+pack
+            mt1(elcB[pos2],0,[216+pos2,100+pack],0,400,zm2[pos2])
+        mj([90,0,90,90,-90,0])
+                       
+write(30,1,b=False)
+ress = []
+for i in range(4):
+    if i < 2:
+        ress.append(main(i,root[i],leaf[i]))
+    else:
+        res = [main(i,root[i][j]) for j in range(2)] if i == 3 else main(i,root[i])
+        ress.append(res)
+    tl(i,'done !!!')
+for i in [2,0,1]:
+    grip(0)
+    if i == 2:
+        mj([90,0,90,90,-90,0])
+        tool = 0
+    if i == 1:  
+        amj([180,0,90,90,-90,-180])
+        wait(0.8)
+        tool = 1        
+    T,pos,res = i,poss[tool][i],ress[i]
+    Run = [RunAB,RunAB,RunIT][i]
+    Run()
+T = -1
+for i in range(2):        
+    amj([90,0,90,90,-90,0 if i else -180])
+    wait(0.8)
+    tool = 1 - i        
+    Run = [AtoB,AandITtoB][i]
+    Run()
+write(30,1,b=False)    

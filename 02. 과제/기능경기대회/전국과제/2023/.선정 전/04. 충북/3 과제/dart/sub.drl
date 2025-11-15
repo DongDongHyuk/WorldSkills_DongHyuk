@@ -1,0 +1,57 @@
+# 1. header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(350)
+begin_blend(19)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos):
+    movejx(pos,sol = 3 if T == 2 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [260,260,260][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    if n != -1 and n == tool:
+        return -1
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+def it(n,t=0.5):
+    write(10,n,b=False)
+    wt(t * abs(n))
+    return 0.5 * abs(n)
+gp = 4.5
+def gt(n,t=0.1):
+    global gp
+    if n == gp:
+        return -1
+    write(20,n,b=False)
+    n1 = 0.1 * abs(gp - n)
+    wt(n1)
+    gp = n
+    return n1
+    
+rmj(c=-180)

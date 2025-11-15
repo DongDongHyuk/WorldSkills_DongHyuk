@@ -1,0 +1,8 @@
+from DRCF import *
+drl_report_line(OFF)
+printf = lambda *n: tp_log(''.join(map(str,n)))
+
+port = 20001
+sock = server_socket_open(port)
+n = server_socket_read(sock)[1].decode()
+server_socket_close(sock)

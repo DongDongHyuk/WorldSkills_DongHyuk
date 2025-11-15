@@ -1,0 +1,21 @@
+--문자열쓰는 이유는 통신할때 문자로만 가능하기 때문이다
+
+eval(n) = 문자열을 리스트로 변환
+str(n) = 리스트를 문자열로 변환
+
+n.encode() = 포장
+n.decode() = 포장해체
+
+
+
+다트통신
+소켓이름 = sock
+
+server_socket_write(sock,str(n).encode()) #쓰기
+n = eval(server_socket_read(sock, timeout=1000)[1].decode()) 읽기
+
+idle통신
+소켓이름 = clSk
+
+Sock.send(bytes(str(n),'utf- 8')) #쓰기
+n = eval(Sock.recv(1024)) #읽기

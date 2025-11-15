@@ -1,0 +1,136 @@
+from DRCF import *
+drl_report_line(OFF)
+
+from collections import deque
+import time as t
+
+def exc(br,s,e):
+    br = list(br)
+    pack = br[e]    
+    p = pack.lower() == 'p'
+    if p:
+        m = pack.lower() if pack.isupper() else pack.upper()
+        m_p = br.index(m)
+        br[s],br[e],br[m_p] = br[e],m,'0'
+    else:
+        br[s],br[e] = br[e],'0'
+    return ''.join(br)
+    
+def exp(mode,br,pos=None):
+    res = []
+    dy,dx = [-1,0,1,0],[0,1,0,-1]
+    for pos in range(sy*sx) if mode else [pos]:
+        if (mode and br[pos] != '0') or pos in fix:
+            continue
+        y,x = divmod(pos,sx)
+        for i in range(4):
+            ny,nx = y + dy[i],x + dx[i]
+            nz = ny * sx + nx
+            if  -1 < ny < sy and -1 < nx < sx and \
+                br[nz] != 'x' and nz not in fix:
+                    res.append(exc(br,pos,nz) if mode else nz)
+    return res
+
+def bfs(mode,br,gbr,*n):
+    if mode == 0:
+        pos = n[0]
+        s,e = br.index(gbr[pos]),pos
+    if mode == 1:
+        pos,p,ise = n # 위치, 팩, isEnd
+        s = br
+    if mode == 2:
+        s = br
+    que = deque([s])
+    mkd = {s:'s'}
+    while 1:
+        if not que:
+            return None
+        n = que.popleft()
+        if  mode == 0 and n == e or \
+            mode == 2 and n == gbr:
+                break
+        if mode == 1:
+            
+            def rule(br,pos):
+                def removes(li):
+                    for i in li:
+                        fix.remove(i)
+                fix.extend(pos)
+                for i in range(sy*sx):
+                    if br[i] in ['0','x'] or i in fix:
+                        continue
+                    if bfs(0,br,gbr,gbr.index(br[i])) == None:
+                        removes(pos)
+                        return False
+                removes(pos)
+                return True
+
+            pp = lambda br: [br.index('P'),br.index('p')]
+
+            isp = p in ['p','P']
+            if (n[pos] == p if not isp else pp(n) == pp(gbr)) and \
+               not ise or (ise and rule(n,[pos] if not isp else [pos,gbr.index('p')])):
+                break
+            
+        for new in exp(mode,n if mode else br,n):
+            if new not in mkd:
+                mkd[new] = n
+                que.append(new)
+    mkd['e'] = n
+    return mkd
+
+def path(mkd):
+    br = mkd['e']
+    res = [br]
+    while mkd[br] != 's':
+        br = mkd[br]
+        res.append(br)
+    return res[::-1][1:]
+
+def sort(br,gbr,pos):
+    res = []
+    n = br
+    p = gbr[pos]
+    r = path(bfs(0,br,gbr,pos))
+    for i in range(len(r)):
+        mkd = bfs(1,n,leaf,r[i],p,i == len(r)-1)
+        res += path(mkd)
+        n = mkd['e']       
+    fix.extend([pos])
+    return res,mkd['e'] if r else br
+
+def main(Type,root,leaf):
+    global sy,sx,fix
+    sy,sx = [[3,3],[3,4],[3,4],[4,4]][Type]
+    fix = []
+    res = [root]
+
+    pp = lambda br: [br.index('P'),br.index('p')]
+    
+    t_start = t.time()
+
+    if Type in [0,1,2]:
+        res += path(bfs(2,root,leaf))
+    if Type == 3:
+
+        n = root
+        a,b,c,d = [0,1,4,5],[3,2,7,6],[12,13,8,9],[15,14,11,10]
+        li = a + b + c + d
+        
+        for i in li:
+            if leaf[i] not in ['x','0','p','P']:
+                p,n = sort(n,leaf,i)
+            elif leaf[i] == '0':
+                mkd = bfs(1,n,leaf,i,leaf[i],0)
+                p,n = path(mkd),mkd['e']
+            res += p
+
+        fix.clear()
+        res += path(bfs(2,n,leaf))    # Pipe sorting
+                
+    t_end = t.time() - t_start
+
+    if res[-1] == leaf:
+        tp_log('sorted in {}s'.format(round(t_end,5)))
+    else:
+        tp_log('not sorted')

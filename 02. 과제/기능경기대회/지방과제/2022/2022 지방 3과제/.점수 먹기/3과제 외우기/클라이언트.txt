@@ -1,0 +1,276 @@
+from socket import *
+import time
+while 1:
+    def for_g(ys,xs,yl,xl):
+        for y in range(ys,yl):
+            for x in range(xs,xl):
+                yield y,x
+    li_copy = lambda li : list(map(lambda f:f[:],li))
+    print_ = lambda li : list(map(lambda f:print(f),li))
+    cv = ((1,0),(-1,0),(0,-1),(0,1))
+    cv_p = ((1,0),(1,1),(0,1),(-1,1),(-1,0),(-1,-1),(0,-1),(1,-1))
+    abp = lambda y,x,t=None : list(map(lambda f: (y+f[0],x+f[1],cv.index(f)) if t else (y+f[0],x+f[1]),cv))
+    peck_coll = -1
+    turn,name_num = 0,0
+    poss,poss_d = [],[]
+    clSk = socket(AF_INET, SOCK_STREAM)
+    while 1:
+        try: clSk.connect(('192.168.137.100', 20001))
+        except:
+            time.sleep(0.1)
+            print('.')
+            continue
+        else: break
+    tstart = time.time()
+    A = eval(clSk.recv(1024))
+    clSk.send(bytes(str(1),'utf-8'))
+    index_ = eval(clSk.recv(1024))
+    clSk.send(bytes(str(1),'utf-8'))
+    B1 = eval(clSk.recv(1024))
+    clSk.send(bytes(str(1),'utf-8'))
+    B2 = eval(clSk.recv(1024))
+    clSk.send(bytes(str(1),'utf-8'))
+    D = [0,0]
+    for y,x in for_g(1,1,7,5):
+        if A[y][x] == 9:
+            A[y][x] = -99
+    print_(A)
+    print(index_)
+    def index_lol(n,hol=0,li=0):
+        if not hol: li = [li[0]]+list(reversed(li[1:8]))
+        for h in range(n):
+            li.append(li[0])
+            del li[0]
+        if not hol: li = [li[0]]+list(reversed(li[1:8]))
+        return li
+    def peck_line(li,y,x):
+        log_ = [0]*8
+        for n in range(8):
+            f,j = cv_p[n]
+            t,z = y,x
+            for i in range(6):
+                if li[t+f][z+j]: log_[n] = i
+                elif li[t][z] == 1 or li[t][z] == 3: log_[n] = 1
+                elif li[t+f][z+j] == 0:
+                    t+=f; z+=j
+                    continue
+                break
+        return log_
+    def peck_turn(li,y,x,log_=0):
+        if log_: log_ = peck_line(li,y,x)
+        min_log = [0]*8
+        for i in range(8):
+            if log_[i]:
+                index_peck = 1 if li[y][x] <= 2 else 2
+                number = []
+                numapp = number.append
+                for s,l,de in [[0,7,-1],[8,0,0]]:
+                    save_ = index_[:]
+                    for n in range(8):
+                        if save_[i] == index_peck:
+                            numapp(n);break
+                        save_.insert(s,save_[l])
+                        del save_[de]
+                min_log[i] = number
+        return min_log
+
+    def A_lode(liA,yl,xl):
+        li = li_copy(A_X)
+        py,px = yl,xl
+        li[yl][xl] = 55
+        a=A_max
+        for i in range(a-1):
+            for e in range(2):
+                for f,j in abp(py,px):
+                    if A_X[f][j] == a-1:
+                        if liA[f][j] == 0 or e==1:
+                            li[f][j],a = 55,a-1; py,px = f,j; break
+                else: continue
+                break
+        return li
+    def A_peck(li,lode):
+        A_yx = []
+        A_yxp = A_yx.append
+        for y in range(1,7):
+            for x in range(1,5):
+                if 0 < li[y][x]:
+                    if peck_coll == -1: pass
+                    elif peck_coll!=0 and 2 < li[y][x]: pass
+                    elif peck_coll==0 and 0 < li[y][x] < 3: pass
+                    else: continue
+                    A_yxp([y,x])
+        for i in range(len(A_yx)):
+            y,x = A_yx[i]
+            if lode[y][x] == 55:
+                n1 = A_yx[i]
+                del A_yx[i]
+                A_yx.insert(0,n1)
+        return A_yx
+    def A_main(n,n_max):
+        global turn,peck_coll,index_
+        if n > n_max: return 0
+        Alo = A_lode(A,6,last)
+        dfdf = 0
+        for y in range(1,7):
+            for x in range(1,5):
+                if Alo[y][x] == 55 and A[y][x]: dfdf+=1
+        if not dfdf:
+            global name_num
+            name_num = n
+            return poss_d,poss
+        pyx = A_peck(A,Alo)
+        for i in range(len(pyx)):
+            y,x = pyx[i]
+            pline = peck_line(A,y,x)
+            pturn = peck_turn(A,y,x,pline)
+            for q in range(8):
+                if pline[q] and (0 in pturn [q] or turn in pturn[q]):
+                    peck_coll = 1 if A[y][x] < 3 else 0
+                    f,j = map(lambda f:f*pline[q],cv_p[q])
+                    poss.append([y,x,y+f,x+j,q])
+                    A[y+f][x+j],A[y][x] = A[y][x],0
+                    for e in range(2):
+                        if pturn[q][e] == turn or pturn[q][e] == 0:
+                            poss_d.append([pturn[q][e],e])
+                            if pturn[q][e]:
+                                index_ = index_lol(pturn[q][e],e,index_)
+                                turn -= pturn[q][e]
+                            turn += 1
+                            vv = A_main(n+1,n_max)
+                            if vv: return vv
+                            else:
+                                if pturn[q][e]:
+                                    index_ = index_lol(pturn[q][e],~e+2,index_)
+                                    turn = pturn[q][e]
+                                else: turn -=1
+                                del poss_d[-1]
+                                
+                    peck_coll = ~peck_coll+2
+                    del poss[-1]
+                    A[y][x],A[y+f][x+j] = A[y+f][x+j],0
+        else:
+            return 0
+    def A_start():
+        global start,last,turn,peck_coll,D,poss,poss_d
+        start_li = [1,2,3,4]
+        last_li = [1,2,3,4]
+        for i in range(1,5):
+            if 10 < A[1][i]:
+                start,A[1][i] = i,A[1][i]-10
+                del start_li[start_li.index(i)]
+                start_li.insert(0,i)
+            if 10 < A[6][i]:
+                last,A[6][i] = i,A[6][i]-10
+                del last_li[last_li.index(i)]
+                last_li.insert(0,i)
+        global A_X,A_max
+        A_X = [[-99 if y==0 or x==0 or y==7 or x==5 else 0 for x in range(6)] for y in range(8)]
+        for y in range(1,7):
+            for x in range(1,5):
+                if A[y][x] == -99:
+                    A_X[y][x] = -99
+        a = A_X[1][start] = 1
+        while A_X[6][last]==0:
+            for y in range(1,7):
+                for x in range(1,5):
+                    if A_X[y][x] == a:
+                        for f,j in abp(y,x):
+                            if A_X[f][j] == 0:
+                                A_X[f][j] = a+1
+            a+=1
+        A_max = a
+        Alo = A_lode(A,6,last)
+        for i in range(20,50,20):
+            
+            for t in start_li:
+                for z in last_li:
+                    print(t,z)
+                    D[0],A[1][t] = A[1][t],0
+                    D[1],A[6][z] = A[6][z],0
+                    vv = A_main(1,i)
+                    if vv:
+                        D = [t,z]
+                        return 1
+                    A[6][z],D[1] = D[1],0
+                    A[1][t],D[0] = D[0],0
+    import sys
+    sys.setrecursionlimit(10**5)
+    start,last = 0,0
+    A_start()
+    print(time.time()-tstart)
+    Alo = A_lode(A,6,last)
+    abp_B = lambda y,x,li : list(map(lambda i:[y+i[1],x+i[2],i[0],i[1],i[2]],pos_cv(li[y][x])))
+    Bs,Bl = [],[]
+    for li in [B1,B2]:
+        for y,x in for_g(1,1,5,5):
+            if 0 < li[y][x]:
+                if li[y][x] == 20:
+                    Bl.append([y,x])
+                    li[y][x] = 0
+                else:
+                    Bs.append([y,x])
+    cv = [[-1,0],[0,1],[1,0],[0,-1]]
+    log_a = []
+    test = [[0,1,0],
+            [4,0,2],
+            [0,3,0]]
+    def pos_cv(n):
+        cvq = li_copy(cv)
+        for i in range(n-1):
+            cvq.insert(4,cvq[0])
+            del cvq[0]
+        for f,i in enumerate(cvq):
+            yield [f]+i[:]
+    #가능한 방향 알려주는 함수(B1,B2 포함)
+    def pos_all():
+        alling = []
+        for e in range(2):
+            li = [B1,B2][e]
+            y,x = Bs[e]
+            for f,j,i,_,_ in abp_B(y,x,li):
+                if not li[f][j] and i not in alling:
+                    alling += [i]
+        alling.sort()
+        return alling
+    def B_main(n,max_n):
+        global log_a,Bs,Bl
+        if n>max_n: return 0
+        for e in pos_all():
+            Bs_save,Bl_save = li_copy(Bs),li_copy(Bl)
+            yx_save = []
+            n_save = [[],[]]
+            log_a.append(e)
+            for li,aa in [[B1,0],[B2,1]]:
+                y,x = Bs[aa]
+                yx_save+=[[y,x]]
+                for f,j,i,yf,xj in abp_B(y,x,li):
+                    if i==e and li[f][j] == 0:
+                        n_save[aa] = li[y][x]
+                        li[f][j],li[y][x] = test[1+yf][1+xj],0
+                        Bs[aa] = [f,j]
+            if n_save == [[],[]]: continue
+            else:
+                if Bl == Bs: return 1
+                else:
+                    if B_main(n+1,max_n): return 1
+            del log_a[-1]
+            for li,o in [[B1,0],[B2,1]]:
+                if n_save[o]:
+                    y,x = yx_save[o]
+                    f,j = Bs[o]
+                    li[y][x],li[f][j] = n_save[o],0
+            Bs,Bl = Bs_save,Bl_save
+    for i in range(1,30):
+        if B_main(1,i):
+            break
+    clSk.send(bytes(str(poss),'utf-8'))
+    yuyu = eval(clSk.recv(1024))
+    clSk.send(bytes(str(poss_d),'utf-8'))
+    yuyu = eval(clSk.recv(1024))
+    clSk.send(bytes(str(log_a),'utf-8'))
+    yuyu = eval(clSk.recv(1024))
+    clSk.send(bytes(str(Alo),'utf-8'))
+    yuyu = eval(clSk.recv(1024))
+    clSk.send(bytes(str(D),'utf-8'))
+    yuyu = eval(clSk.recv(1024))
+    print(time.time()-tstart,'초')

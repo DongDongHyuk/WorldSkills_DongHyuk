@@ -1,0 +1,148 @@
+set_tool("Tool Wei"); set_tcp("전기그리퍼")
+drl_report_line(OFF)
+printf = lambda li: tp_log("{}".format(li))
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = list(map(lambda a: ord(a),i[1:-1]))
+    
+def write(ad,val):
+    ser = serial_open(port = "COM")
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad):
+    ser = serial_open(port = "COM")
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+
+set_velx(800); set_accx(500)
+    
+# 좌표     
+A = posx(-259.56, 191.93, 9.78, 116.56, 180, 116.08)
+in_index = posx(352.62, 255.22, 77.35, 0, 180, 0)
+B_1 = [posx(369.67, 320.57, 10.91, 16.93, 180, 15.35)] * 12 
+B_2 = [posx(239.37, 400.28, 10.47, 61.97, -179.99, 60.54)] * 12
+C_1 = posx(-33.68, 521.39, 29.86, 93.01, -180, 91.71)
+C_2 =  posx(-113.38, 522.33, 29.82, 126.51, 179.98, 125.24)
+
+for i in range(1,12):
+    if i % 3 == 0: B_1[i] = trans(B_1[i-3],[0,40,0,0,0,0])
+    else: B_1[i] =  trans(B_1[i-1],[-40,0,0,0,0,0])
+    if i % 4 == 0: B_2[i] = trans(B_2[i-4],[0,40,0,0,0,0])
+    else: B_2[i] =  trans(B_2[i-1],[-40,0,0,0,0,0])
+    
+
+
+up_pos = [[0,0,-1.4,0,0,0],[0,0,38,0,0,0],[0,0,65,0,0,0]]
+way_point = posx(-6.25, 424.9, 192.88, 90, -180, 90)
+
+# 변수 
+IT =  [read(i) for i in range(1,9)]
+B1 = [read(i) for i in range(35,47)]
+B2 = [read(i) for i in range(47,59)]
+
+# 로봇 무빙 
+buzz = lambda a: write(100,a)
+
+def grip(n, ad=-1,val=-1):
+    wait(0.1)
+    set_tool_digital_outputs([1*n,2*-n])
+    if -1 not in [ad,val]: write(ad,val)
+    wait(0.1)
+    
+def moves(pos, ad=-1,val=-1):
+    movel(trans(pos,up_pos[1]))
+    movel(pos)
+    grip(1,ad,val)
+    
+def movea(pos,ad=-1,val=1,bz=-1):
+    grip(-1,ad,val)
+    if bz != -1: buzz(bz)
+    movel(trans(pos,up_pos[1]))
+    
+# 인덱스 돌리는 거 
+def spin_index(n):
+    global IT
+    write(80,n)
+    for _ in range(n):
+        box = IT[0]
+        del IT[0]
+        IT.append(box)
+        for i in [8,7,6,5,4,3,2,1]:
+            write(i,IT[i-1])
+            wait(0.06)
+
+#A 점수 먹기    
+def A_point():
+    num = read(11)
+    moves(A,11,0)
+    movel(trans(A,up_pos[1]))
+    movel(trans(A,[0,0,-1.5,0,0,0]))
+    movea(A,11,num)
+    
+def index_point():
+    global IT
+    while IT[4] != 1:
+        spin_index(1)
+        wait(0.8)
+    movec(way_point,trans(in_index,up_pos[1]))
+    exit()
+    movel(in_index)
+    num = read(5)
+    n = num
+    grip(1,5,0)
+    movel(trans(in_index,up_pos[1]))
+    movel(trans(C_1,up_pos[1]))
+    movel(C_1)
+    write(59,num)
+    wait(0.3)
+    movel(trans(C_1,up_pos[1]))
+    write(59,0)
+    
+    
+def B_point():
+    global n
+    for i in range(2):
+        B = B2 if i == 0 else B1 
+        pos = B_2 if i == 0 else B_1
+        err = 47 if i == 0 else  35
+        for j in range(12):
+            if B[j] == 0:
+                movel(trans(pos[j],up_pos[2]))
+                movel(trans(pos[j],[0,0,-1.5,0,0,0]))
+                write(err+j,6)
+                wait(0.3)
+                if i == 0:
+                    movel(trans(pos[j],up_pos[2]))
+                    write(err+j,0)
+                if i == 1:
+                    grip(-1)
+                    movel(trans(pos[j],up_pos[1]))
+                break
+
+def main():
+    grip(-1)
+    buzz(1)    
+    A_point() # 1-2 A 구역 실시간  
+    index_point() # 인덱스 실시간, 겐트리 실시간
+    B_point() # B 구역 실시간
+    buzz(1)
+    
+main()

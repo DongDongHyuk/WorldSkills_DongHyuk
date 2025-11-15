@@ -1,0 +1,274 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+    
+speed = 300; pointA_Y = 307
+set_velx(speed), set_accx(speed)
+index_pos = [posx(376.3, 151.17, 150, 0, -180 , 90),posx(376.3, 151.17, 82, 0, -180 , 90)]
+pointA_1 = [posx(187.19, pointA_Y, 70, 0, -180, 90),posx(187.19, pointA_Y, 25, 0, -180, 90),
+posx(187.19, pointA_Y, 5, 0, -180, 90),posx(187.19, pointA_Y, -15, 0, -180, 90)]
+waypoint = [posx(0, pointA_Y, 105, 0, -180 , 90),posx(0, pointA_Y+57, 105, 0, -180 , 90),
+posx(0, 400, 150, 0, 180, 90)]
+pointD_up = posx(-329.92, 41.15, 130, 0, 180, 90)
+check_A = [[-51,0,0,0,0,0],[-41,0,0,0,0,0],[-31,0,0,0,0,0],[-21,0,0,0,0,0]]
+grip_A = [[-40,0,0,0,0,0],[-30,0,0,0,0,0],[-20,0,0,0,0,0]]
+gantry_pos = [posx(99.83, 544.66, 15, 0, 180, 90),posx(-137.79, 544.66, 15, 0, 180, 90)]
+pointA_2 = [0]*4; pointC_1 = [0] * 4; pointC_2 = [0] * 4
+for i in range(4):
+    pointA_2[i] = trans(pointA_1[i],[0,58,0,0,0,0],0,0)
+    pointC_1[i] = trans(pointA_1[i], [-335,3,0,0,0,0],0,0)
+    pointC_2[i] = trans(pointA_1[i], [-335,60,0,0,0,0],0,0)
+pointD = [posx(-329.5, 42.01, 15.46, 0, 180, 90)] * 9
+for i in range(1,9):
+    if i % 3 != 0:
+        pointD[i] = trans(pointD[i-1],[-40,0,0,0,0,0],0,0)
+    else:
+        pointD[i] = trans(pointD[i-3],[0,37.5,0,0,0,0],0,0)
+a  = P = pos_count = call =  count = gantry_pack = 0 # int 
+indexT = [0] * 8; A = [0] * 2; C_1 = [0] * 3; C_2 = [0] * 3 # list
+global P
+
+def grip(a):
+    set_tool_digital_outputs([1*a,-2*a]) # -1: grip off ! , 1: grip
+
+def up(a):
+    grip(-1)
+    movel([0,0,50,0,0,0],mod = 1)
+    
+def start(a = 1):    
+    #tp_log("부저! 부저! 부저 !")
+    #wait(0.5)
+    #tp_log("부저 끝!")
+    if a == 1:
+        movel(index_pos[0]) # up
+
+def index_scan(a):
+    begin_blend(4)
+    movel(index_pos[1]) # down    
+    for i in range(2): # 0~2
+        if i == 0: # 제일 낮은 지점에서 없으면 팩 없음 0 
+            grip(1) # grip!
+            wait(0.3)
+            if get_tool_digital_input(1) == 1:
+                grip(-1) # grip off
+                movel([0,0,10,0,0,0], mod = 1)
+                break
+            grip(-1) # grip off   
+        # 제일 낮은 지점에 팩이 잡힐때 1,2,3
+        movel([0,0,10,0,0,0], mod = 1) # 10씩 올림
+        grip(1) # grip!
+        wait(0.3)
+        if i == 0 and get_tool_digital_input(1) == 1: # -20 지점에 없으면 1 있으면 2 or 3
+            indexT[a] = 1
+            grip(-1) # grip off
+            break
+        if i == 1 and get_tool_digital_input(1) == 1: # -10 지점에 없으면 2 아니면 3
+            indexT[a] = 2
+        if i == 1 and get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0: 
+            indexT[a] = 3
+        grip(-1) # grip off
+    write(30,1)
+    wait(0.5)
+    if a < 7: index_scan(a+1) # 8번(재귀 함수 미쳤다리)
+    else: 
+        movel(index_pos[0])
+        end_blend()
+
+def find_index(a,move_ = 1):
+    left = indexT[0]
+    global left,indexT
+    #movel(index_pos[0])  move 에서 초기 좌표로옴
+    for i in range(1,8):
+        if indexT[i] == a:
+            write(30,i) # 인덱스 회전            
+            indexT[i] = 0 # 팩 지우기 
+            if move_ == 1:
+                wait(0.32 * i)
+                movel(index_pos[1])
+                grip(1)
+                movel(index_pos[0])
+            for _ in range(i): # 리스트 밀기 
+                left = indexT[0]
+                for i in range(8):
+                    if i < 7:
+                        indexT[i] = indexT[i+1]
+                indexT[7] = left            
+            break
+
+# d = 0: 잡기를 제외 하고 C 구역으로 이동함 / d = 1: 모든 것을 실행 / d = 2: 잡기만 실행 
+def move(a,b,c,d = 1,e = 0):
+    global call,C_1,C_2
+    tp_log("{}/{}/{}".format(a,b,c))
+    call += 1
+    if d == 1 or d == 2:
+        movel(trans((lambda c:pointA_2[4-a] if c == 1 else pointA_1[4-a])(c),grip_A[3-b], 0,0)) # A 구역 아래로
+        grip(1)
+        wait(0.2)
+    if d == 1 or d == 0:
+        if d == 1
+            if e == 0: 
+                write((lambda c: 13 if c == 1 else 10)(c)+a,b)
+                movec(waypoint[c],(trans((lambda c:pointC_2[a] if c == 1 else pointC_1[a])(c),grip_A[3-b], 0,0))) # C 구역 아래로            
+            else: 
+                write((lambda c: 13 if c == 1 else 10)(c)+e,b)
+                movec(waypoint[c],(trans((lambda c:pointC_2[e] if c == 1 else pointC_1[e])(c),grip_A[3-b], 0,0)))        
+        if d == 0: 
+            movel([0,0,50,0,0,0],mod = 1)
+            movel((lambda c: pointC_1[0] if c == 0 else pointC_2[0])(c))
+            movel(trans((lambda c:pointC_2[a] if c == 1 else pointC_1[a])(c),grip_A[3-b], 0,0))
+            grip(-1)
+        if call < 4:
+            C_1[call-1] = b
+        else:
+            C_2[call-4] = b
+        if call == 1:
+            find_index(b,0)
+        grip(-1)
+        if (lambda a:C_1[2] if a == 0 else C_2[2])(c) != 0 and gantry_pack >= 1:
+            out_gantry(a,b,c)
+        if call != 3 and call != 6:
+            movec(waypoint[c],(trans((lambda c:pointA_2[(lambda a:2 if a == 3 else 3 if a == 2 else 0)(a)] if c == 1 else pointA_1[(lambda a:2 if a == 3 else 3 if a == 2 else 0)(a)])(c),check_A[0], 0,0)))
+        if call == 3: 
+            movel([0,0,30,0,0,0], mod = 1)
+            movec(waypoint[1],(trans(pointA_2[1],check_A[0], 0,0)))
+        if call == 6: # index_scan ->
+            movel([0,0,30,0,0,0], mod = 1)
+            movec(waypoint[1],index_pos[0])
+                
+def move_0():
+    movel(index_pos[1])
+    grip(1)
+    wait(0.3)
+    movel(index_pos[0])
+              
+# 0 ~ 5 (moveD = def D 구역으로 원형 팩 옮기기) include<index_pos[0]으로 복귀>
+def moveD(a, list_ =[5,3,1,6,4,2]):
+    if a >= 1: 
+        movel(index_pos[1])
+        grip(1)
+        movel(index_pos[0])        
+    if a < 3: result = 6 - (3 * a)
+    else: result = (lambda a :8 if a == 3 else 5 if a == 4 else 2)(a)
+    movec(waypoint[2],pointD_up)
+    movel(pointD[result])
+    grip(-1)
+    write(list_[a],(lambda a:C_1[a] if a < 3 else C_2[3-a])(a))
+    if a < 2:
+        find_index(C_1[a+1],0)
+    else:
+        find_index(C_2[(a-3)+1],0)
+    movel([0,0,50,0,0,0], mod = 1)
+    movec(waypoint[2],index_pos[0])
+    
+def T_goto_D():
+    pack_size = 0
+    global count
+    if count == 0: # 처음 한 번만 실행
+        count += 1
+        move_0() #index_pos에 가서 잡고 올리기 (인덱스는 check_A 에서 미리 돌려놨음)     
+        moveD(0) # C - 1 구역 하단 팩을 기록하고 인덱스로 돌아옴
+    for i in range(1,6): # 1 ~ 5 (5 번)
+        moveD(i)
+
+def  in_gantry(a,b,c):
+    tp_log("난 스파게티가 싫어")
+    
+def out_gantry(a,b,c):
+    tp_log("난 스파게티가 싫어")
+    
+    
+# a = 층, b = 팩
+def A_goto_C(a,b,c):
+    #=======(겐트리 무빙)=======
+    global pos_count
+    if b == 1 or b == 3:
+        if pos_count != -1:
+            write(101,1)
+            pos_count -= 1
+    if b == 2:
+        if pos_count != 1:
+            write(102,1)
+            pos_count += 1 
+    #==========================
+    if a == 3: # 층
+        if b == 1 or b == 2:# 작은 팩 중간 팩
+            in_gantry(a,b,c)
+        if b == 3: # 큰 팩
+            move(a,b,c)
+    
+
+def A_check():
+    pack = b = C = count = 0; grip(-1)
+    for gas in range(2): # 0 ~ 1
+        for l in range(2): # 0 : 1층 / 1 : 2층 / 2 : 3층
+            if count == 0 and gas == 0:
+                movel(trans(pointA_1[0],check_A[0],0,0)) # only one 
+                count += 1
+            for i in range(2): # 0 : cheak 3 / 1 : cheak 1 , 2
+                if gas == 0: movel(trans(pointA_1[l+1],check_A[i], 0,0))
+                if gas == 1: movel(trans(pointA_2[l+1],check_A[i], 0,0))
+                grip(1)
+                wait(0.3)
+                if i == 0 and get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0: # 3
+                    grip(-1); pack = 3
+                    A_goto_C(3-l,pack,gas) # 층 , 팩 크기 
+                    break
+                if i == 1 and get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0: # 2
+                    grip(-1); pack = 2
+                    A_goto_C(3-l,pack,gas)
+                    break
+                if i == 1 and get_tool_digital_input(1) == 1: # 1
+                    grip(-1); pack = 1
+                    A_goto_C(3-l,pack,gas)
+                    break          
+                grip(-1)
+                wait(0.3)
+            A[l] = pack
+            for i in range(1,4):
+                fail = 0
+                for l in range(2):
+                    if A[l] !=  i: fail += 1
+                    if fail == 2: result = i
+        A_goto_C(1,result,gas)
+
+def test():
+    write(200,0); write(100,1)
+    while read(200) == 0:
+        if read(100) == 1:
+            up(50)
+            #move_home(1)
+            write(103,1)  # 겐트리 초기화
+            write(104,1) # HMI 초기화
+            #start() # 세팅 
+            #index_scan(0) # 인덱스 테이블 팩 정보 수집        
+            A_check() # (A_goto_C)
+            #T_goto_D() # 인덱스 기록
+            write(200,1) # 종료
+#test()

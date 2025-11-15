@@ -1,0 +1,32 @@
+set_velx(100), set_accx(100)
+set_velj(30), set_accj(30)
+movej([90,0,90,0,90,90])
+svm_connect()
+
+jd = 1000
+
+svm_set_job(jd)
+svm_home = svm_get_robot_pose(jd)
+movej(svm_home)
+
+if svm_get_vision_info(jd):
+    A = svm_get_variable(jd+1, POSX_TYPE)
+    svm_100 =  svm_get_variable(jd+1, VALUE_TYPE)
+    svm_100 = int(svm_100)
+else:
+    tp_popup('error')
+    
+
+svm_set_init_pos_data([jd],[A])
+
+A  = str(A).split(',')
+A[0] = A[0][5:]
+A[5] = A[5][:-1]
+for i in range(len(A)):
+    A[i] = A[i].replace(' ',"")
+for i in range(len(A)):
+    A[i] = int(float(A[i]))
+x,y,z=A[0],A[1],A[2]
+
+mx = svm_get_offset_pos(trans(posx(150, 459.84, 61.5, 71.2, 180, 156.73), [-y,-x,z,0,0,0]), jd)
+movel(mx)

@@ -1,0 +1,397 @@
+drl_report_line(OFF)
+printf = lambda *n: tp_log(' '.join(list(map(str,n))))
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = map(ord,i[1:-1])
+    
+def write(ad,val):
+    ser = serial_open(port = 'COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord('0') if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+    
+from collections import deque
+      
+def chn(board: str, now: int , new: int ):
+      br = list(board) # str -> list
+      br[now],br[new] = br[new],'0'
+      return ''.join(br) # list -> str
+    
+def Truedirs(br: str): # sorting
+      result = []
+      n_p = [i for i in range(len(br)) if br[i] == '0' and i not in fix[1]]
+      rule = lambda br,pos,posN: br[posN] not in fix[0] and posN not in fix[0]
+      rapd = result.append
+      Dir = (-x_size,x_size,-1,1) # 상 하 좌 우
+      for pos in n_p:
+            for i in range(4): # 상하좌우
+                  if pos not in wall[i] and rule(br,pos,pos+Dir[i]):
+                        rapd(chn(br,pos,pos+Dir[i]))
+            if Type == 0: # 대각선
+                  if pos not in wall[0] and pos not in wall[2] and rule(br,pos,pos -(x_size+1)):
+                        rapd(chn(br,pos,pos -(x_size+1)))
+                  if pos not in wall[0] and pos not in wall[3] and rule(br,pos,pos -(x_size-1)):
+                        rapd(chn(br,pos,pos -(x_size-1)))
+                  if pos not in wall[1] and pos not in wall[3] and rule(br,pos,pos +(x_size+1)):
+                        rapd(chn(br,pos,pos +(x_size+1)))
+                  if pos not in wall[1] and pos not in wall[2] and rule(br,pos,pos +(x_size-1)):
+                        rapd(chn(br,pos,pos +(x_size-1)))
+      return result
+
+def Truedirs1(br,pos): # find_road
+      result = []
+      rule = lambda posN: br[posN] == '0'
+      rapd = result.append
+      Dir = (-x_size,x_size,-1,1) # 상 하 좌 우
+      for i in range(4):
+            if pos not in wall[i] and rule(pos + Dir[i]):
+                  rapd(pos+Dir[i])
+      if Type == 0: # A
+            if pos not in wall[0] and pos not in wall[2] and rule(pos -(x_size+1)):
+                  result.append(pos -(x_size+1))
+            if pos not in wall[0] and pos not in wall[3] and rule(pos -(x_size-1)):
+                  result.append(pos -(x_size-1))
+            if pos not in wall[1] and pos not in wall[3] and rule(pos +(x_size+1)):
+                  result.append(pos +(x_size+1))
+            if pos not in wall[1] and pos not in wall[2] and rule(pos +(x_size-1)):
+                  result.append(pos +(x_size-1))
+      return result
+                  
+def bfs(root,leaf=None,idx=None): # sorting
+      que = deque([root])
+      marked = {root:'root'}
+      br = root
+      def isleaf(br): # 단말 노드일때 거짓 리턴
+            if idx != None: return br[idx] != leaf[idx]
+            return br != leaf
+      while isleaf(br):
+            br = que.popleft() # 현재 노드 
+            for next_br in Truedirs(br): 
+                  if next_br not in marked:
+                        marked[next_br] = br
+                        que.append(next_br)
+      marked['leaf'] = br
+      if idx != None: fix[1].add(idx)
+      return marked
+
+def bfs1(br,start,end): # find_road
+      que = deque([start])
+      marked = {start:'root'}
+      pos = None
+      while pos != end:
+            pos = que.popleft()
+            for next_pos in Truedirs1(br,pos):
+                  if next_pos not in marked:
+                        marked[next_pos] = pos
+                        que.append(next_pos)
+      marked['leaf'] = pos
+      return marked
+
+def path(marked):
+      br = marked['leaf'] # 이전 탐색의 단말 노드
+      path = [br]
+      while marked[br] != 'root':
+            br = marked[br]
+            path.append(br)
+      return path[::-1]
+
+def main(r:'root',l:'leaf',T: 'Types of Parets',s: 'start'=None,e: 'end'=None ):
+      #Global Variables
+      global root,leaf,Type,fix,wall,x_size
+      root,leaf,Type = r,l,T
+      fix = ({'0','x'},set()) # 고정 팩,고정 인덱스
+      wall = [({0,1,2,3},{20,21,22,23},{0,4,8,12,16,20},{3,7,11,15,19,23}),
+            ({0,1,2,3,4,5},{18,19,20,21,22,23},{0,6,12,18},{5,11,17,23}),
+            ({0,1,2},{9,10,11},{0,3,6,9},{2,5,8,11})][T]
+      x_size = [4,6,3][T]  
+      result = []
+
+      if T in [0,1]:
+            marked = {'leaf':root}
+            result1,result2 = [],[] # sorting,find road
+            # sorting
+            if T == 0:
+                  for i in (0,3,1,2,20,23,21,22):
+                        marked = bfs(marked['leaf'],leaf,i)
+                        result1 += path(marked)
+                  marked = bfs(marked['leaf'],leaf)
+                  result1 += path(marked)
+            else:
+                  marked = bfs(marked['leaf'],leaf)
+                  result1 += path(marked)
+            # find_road
+            marked = bfs1(marked['leaf'],s,e)
+            result2 = path(marked)
+            result = [result1,result2] # result
+            
+      else: # C
+            result = path(bfs(root,leaf))
+                  
+      # list -> index
+      def converter(result):
+            if not len(result): return []
+            first,path = result[0],[]
+            for second in result[1:]:
+                  step = [None,None]
+                  for i in range(len(second)):
+                        if first[i] != second[i]:
+                              if first[i] =='0': step[1] = i
+                              else: step[0] = i
+                  if None not in step: path.append(step)
+                  first = second[:]
+            return path
+      
+      if T in [0,1]:
+            new_result = [converter(result[0]),result[1]] # sorting,find_road
+      else: new_result = converter(result)
+      
+      return new_result
+
+# M O V I N G
+set_velx(2400); set_accx(1200); begin_blend(2.5) # Global
+
+Positions = [posx(1.41, 424.79, 6.44, 129.46, -179.09, 39.82),
+                   posx(1.41, 424.79, 6.44, 129.46, -179.09, 39.82),
+                   posx(1.41, 424.79, 6.44, 129.47, -179.09, 39.82)]
+                   
+index_pos = posx(455.28, 156.36, 96.16, 0, 180, 0)
+
+isgrip = 0
+def grip(n):
+    global isgrip
+    if isgrip == n: return -1
+    mwait(0)
+    set_tool_digital_outputs([1*n,2*-n])
+    if n==1: wait(0.18)
+    isgrip = (0 if n == -1 else 1)
+    
+def posing(pos,Rn):
+    x = [4,6,3][Rn]
+    pos,n = [pos] * [24,24,12][Rn],40
+    for i in range(1, [24,24,12][Rn]):
+        if i % x: pos[i] = trans(pos[i-1],[-n,0,0,0,0,0])
+        else: pos[i] = trans(pos[i-x],[0,n,0,0,0,0])
+    return pos
+    
+def input_br(a,b,Rn):
+    p_name = [{},{1:'3',2:'x'}][Rn in [0,1]]
+    br = [read(i) for i in range(a,b)]
+    if Rn in [0,1]: 
+        starting,ending = br.index(10),br.index(20) # 출발 지점 도착 지점
+        br[starting],br[ending] = [0] * 2
+    br = [p_name[i] if i in p_name else str(i) for i in br]    
+    if Rn in [0,1]: return [''.join(br),starting,ending]
+    else: return ''.join(br)
+  
+#gantry
+griper_pos = 0
+gantry_pos = 0
+def gantry(n):
+    global griper_pos,gantry_pos
+    write(183,1+[-1,1].index(n))
+    griper_pos -= n
+    gantry_pos += n
+    wait(0.8)
+        
+# index
+index_li = lambda: [read(i) for i in range(108,116)] # index table pack list
+def it(n,t = 0.5):
+    write(180 if n > 0 else 181,abs(n))
+    wait((t)*abs(n))
+def dir_mark(n):
+    Dir = index_li().index(8) # 현재 방향 
+    turn_ct = [(Dir+i)%8 for i in range(8)].index(n) # 정회전시 필요한 회전수
+    it((-(8-turn_ct) if turn_ct > 4 else turn_ct),0.75) # 인덱스 회전   
+            
+up_value = [[0,0,35,0,0,0],[0,0,5,0,0,0]]
+up_pos = lambda: up_value[isgrip]
+up = lambda pos: trans(pos,up_pos())
+# 현재 좌표에서 그리퍼를 n 회전한 좌표 return
+angle = 1
+def turn(n,pos=None):
+    global angle
+    angle = n
+    return [pos[0],pos[1],pos[2],[0,90,45,135][n],180,0] if pos else None
+    
+pass_stack,val = 0,0
+def move(start,end,Rn,ispass = False,h_limit = [35,5]):
+    global pass_stack,val,up_value # 패스 스택, 통신값
+    for ct,i in enumerate((start,end)):    
+        if i == None:
+            if pass_stack != 0: pass_stack -= 1 
+            continue
+        up_value = [[0,0,h_limit[0],0,0,0],[0,0,h_limit[1],0,0,0]]
+        Pos = turn(angle,pos1[i]) if Rn == 0 else pos2[i] if Rn == 1 else pos3[i]
+        if not pass_stack: movel(up(Pos))
+        if ct and ispass: pass_stack += 2 # 현재 스텝 끝, 다음 스텝 시작 pass        
+        if pass_stack == 0:
+            if not ct: val = read(i+[0,48,96][Rn]) % 10 # 잡을 팩
+            movel(Pos,None,800)
+            write(i+[0,48,96][Rn],(val if ct else 0) + ((10 if i == starting[Rn] else 20 if i == ending[Rn] else 0) if Rn in [0,1] else 0))
+            movel(up(Pos),None,800)
+        else: pass_stack -= 1    
+    
+def Run():
+    global pos1,pos2,pos3,starting,ending,griper_pos,val
+    inputs = [input_br(0,24,0),input_br(24,48,0),input_br(48,72,1),input_br(72,96,1)]
+    root = [inputs[0][0],inputs[2][0],None]
+    leaf = [inputs[1][0],inputs[3][0],'xx01234560xx']
+    starting,ending = [inputs[0][1],inputs[2][1]],[inputs[0][2],inputs[2][2]]    
+    pos1 = posing(Positions[0],0) # A 파레트 좌표 찍기   
+    pos2 = posing(Positions[1],1) # B 파레트 좌표 찍기 
+    pos3 = posing(Positions[2],2) # C 파레트 좌표 찍기
+    Path = [main(root[i],leaf[i],i,starting[i],ending[i]) for i in range(2)] # C 정렬 값은 C에 팩을 모두 적재한 이후에 연산
+    
+    # A 정렬
+    for i in range(len(Path[0][0])):
+        start,end = Path[0][0][i]
+        move_dir = end - start
+        angle = 3 if move_dir in [-5,5] else 2 if move_dir in [-3,3] else 1
+        turn(angle)
+        move(start,end,0,False,[35,5])
+        
+    # B 정렬
+    movel([0,0,35,0,0,0],mod = 1)
+    movel(trans(pos2[Path[1][0][0][0]],[0,0,35,0,0,0]))
+    griper_pos = Path[1][0][0][0]     
+    for i in range(len(Path[1][0])):
+        start,end = Path[1][0][i]
+        
+        ispass = i+1 <  len(Path[1][0]) and Path[1][0][i+1][0] == end
+        
+        # 팩 잡을 곳 까지 이동
+        e = [start//6,start%6]
+        s = [griper_pos//6,griper_pos%6]
+        if s[0] != e[0]:
+            movel([0,40*(e[0]-s[0]),0,0,0,0],mod = 1)  
+            griper_pos = e[0] * 6 + s[1]
+        while griper_pos != start:
+            if e[1] < s[1]: gantry(1)    
+            else: gantry(-1)
+            
+        # 팩 이동
+        movel([0,0,-35,0,0,0],None,800, mod = 1)
+        grip(1)
+        movel([0,0,+5,0,0,0],None,800, mod = 1)
+        val = (read(start+48) % 10) + (10 if end == starting[1] else 20 if end == ending[1] else 0)
+        write(start+48,10 if start == starting[1] else 20 if start == ending[1] else 0)
+        move_dir = end - start
+        if move_dir in [-6,6]:
+            if move_dir == -6: movel([0,-40,0,0,0,0],mod = 1) 
+            else:  movel([0,40,0,0,0,0],mod = 1)
+            griper_pos += move_dir
+        else:
+            if move_dir == -1: gantry(1)
+            else: gantry(-1)
+        movel([0,0,-5,0,0,0],None,800,mod = 1)
+        grip(-1)
+        write(end+48,val)
+        movel([0,0,35,0,0,0],None,800,mod = 1)
+    
+    # C 적재,정렬
+    movel([0,0,35,0,0,0],mod = 1)
+    for _ in range(7):    
+    
+        # 겐트리 원점
+        while gantry_pos != 0:
+            if gantry_pos > 0: gantry(-1)
+            else: gantry(1)
+            
+        while 1: # 인덱스 에서 팩 잡기
+            pack = read(112)
+            if 0 < pack < 7 or (_ == 6 and pack == 7):
+                val = pack # 잡을 팩
+                movel(trans(index_pos,[0,0,35,0,0,0]))
+                movel(index_pos)
+                grip(1)
+                write(112,0)
+                movel([0,0,80,0,0,0],mod = 1)
+                it(-1,0) # 인덱스 회전
+                break
+            else: it(-1) # 인덱스 회전
+            
+        # B 길찾기
+        movel(trans(pos2[starting[1]],[0,0,65,0,0,0]))
+        movel(trans(pos2[starting[1]],[0,0,5,0,0,0]))
+        road =  Path[1][1]
+        for i in range(len(road)-1):
+            start,end = road[i],road[i+1]
+            move_dir = end - start
+            # 마지막 팩을 옮길때는 방향 표시
+            if _ == 6: dir_mark([0,4,6,2][(-6,6,-1,1).index(move_dir)])
+            if move_dir in [-6,6]:
+                if move_dir == -6: movel([0,-40,0,0,0,0],mod = 1) 
+                else:  movel([0,40,0,0,0,0],mod = 1)
+                griper_pos += move_dir
+            else:
+                if move_dir == -1: gantry(1)
+                else: gantry(-1)
+        movel([0,0,60,0,0,0],None,800,mod = 1)
+        
+        # A 길찾기
+        movel(trans(pos1[starting[0]],[0,0,65,0,0,0]))
+        movel(trans(pos1[starting[0]],[0,0,5,0,0,0]))
+        road =  Path[0][1]
+        for i in range(len(road)-1):
+            start,end = road[i],road[i+1]
+            move_dir = end - start
+            # 마지막 팩을 옮길때는 방향 표시
+            if _ == 6: dir_mark([0,4,6,2,7,3,1,5][(-4,4,-1,1,-5,5,-3,3).index(move_dir)])
+            angle = 3 if move_dir in [-5,5] else 2 if move_dir in [-3,3] else 1
+            movel(trans(turn(angle,pos1[start]),[0,0,5,0,0,0]))
+            mwait(0) # 다돌릴때 까지 ㄱㄷ 
+            move(start if i else None,end,0,True,[35,5])
+        movel([0,0,60,0,0,0],None,800,mod = 1)  
+        
+        # C 적재
+        move(None,[2,5,4,3,8,7,9][_],2,False,[35,65])
+        
+        if _ == 5: # C 정렬 
+            Path.append(main('xx'+input_br(98,106,2)+'xx',leaf[2],2))
+            Path.append([[3, 6], [4, 3], [5, 4], [8, 5], [7, 8], [4, 7], [3, 4], [6, 3], [7, 6], 
+            [6, 9], [3, 6], [4, 3], [5, 4], [2, 5], [4, 7], [5, 4], [8, 5], [7, 8], [6, 7], [9, 6]])
+            for i in range(len(Path[2])):
+                start,end = Path[2][i]
+                ispass = i+1 <  len(Path[2]) and Path[2][i+1][0] == end
+                move(start,end,2,False,[35,5])
+                
+        # 집 경유 후 반복
+        movej([90,0,90,0,90,0],150,150)
+        
+# M A I N
+import time
+grip(-1)
+#sub_program_run('hmi').hw(0,116)
+movej([90,0,90,0,90,0],75,75)
+
+#__RUN__
+start = time.time() # Start
+write(199,1)#buzz
+
+Run() # A,B,C
+
+write(199,1)#buzz
+end = time.time() # End
+
+printf('--',round((end - start)/60,3),'분--') # time'''

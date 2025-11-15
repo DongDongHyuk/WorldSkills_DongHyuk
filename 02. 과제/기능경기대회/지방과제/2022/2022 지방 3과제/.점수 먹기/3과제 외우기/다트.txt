@@ -1,0 +1,277 @@
+w="5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4".split()
+r="5 0 0 R S S 0 1 0 6 % D W 0 0 0 4".split()
+w[0], r[0] = [5]*2
+w[20], r[16] = [4]*2
+for i in range(1, 20):
+    w[i]=ord(w[i])
+    if i < 16: r[i]=ord(r[i])
+def write(ad, val):
+    ser = serial_open(port = "COM")
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    wait(0.02)
+    serial_close(ser)
+def read(ad):
+    ser = serial_open(port = "COM")
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n=int(ser.read(ser.inWaiting()).decode()[10:14], 16)
+    serial_close(ser)
+    return n
+def sock_write(n):
+    server_socket_write(sock,str(n).encode('utf-8'))
+    res, rx_data = server_socket_read(sock, timeout=2)
+def sock_read():
+    n = eval(server_socket_read(sock, timeout=1000)[1].decode('utf-8'))
+    server_socket_write(sock,str([]).encode('utf-8'))
+    return n
+def pos_ct(size,x,p1):
+    li = [p1]*size
+    for i in range(1,size):
+        li[i] = trans(li[i-1],[-40,0,0,0,0,0]) if i%x else trans(li[i-x],[0,40,0,0,0,0])
+    return li
+def grip(d,t,u):
+    movel([0,0,-d,0,0,0], mod=1)
+    if not t: wait(0.1)
+    set_tool_digital_outputs([1,-2] if t else [-1,2])
+    if t: wait(0.19)
+    movel([0,0,u,0,0,0], mod=1)
+
+set_velx(1100),set_accx(1500)
+set_velj(30),set_accj(30)
+set_tool_digital_outputs([-1,2])
+amovej([90,0,90,0,90,90])
+write(400,5)
+drl_report_line(OFF)
+
+def for_g(ys,xs,yl,xl):
+    for y in range(ys,yl):
+        for x in range(xs,xl):
+            yield y,x
+abp = lambda y,x,t=None : list(map(lambda f:[y+f[0],x+f[1],cv.index(f)] if t else [y+f[0],x+f[1]], cv))
+index_ = [read(i+1) for i in range(8)]
+A = [[-99 if y==0 or x==0 or y==7 or x==5 else read((y-1)*4+x+10) for x in range(6)] for y in range(8)]
+for i in range(1,5):
+    if A[1][i] > 10: A_start = i
+B1 = [[-99 if y==0 or x==0 or y==5 or x==4 else read((y-1)*3+x+39) for x in range(5)] for y in range(6)]
+B2 = [[-99 if y==0 or x==0 or y==4 or x==5 else read((y-1)*4+x+51) for x in range(6)] for y in range(5)]
+for y,x in for_g(1,1,5,5):
+    if B1[y][x] == 9: B1[y][x] = -99
+    if B2[y][x] == 9: B2[y][x] = -99
+turn = 0
+gentree = [10,-12,12,-12,4,-12,12,-12]
+cv = ((-1,0),(0,1),(1,0),(0,-1))
+cvpos= [[0,-40,0,0,0,0],[-40,0,0,0,0,0],[0,40,0,0,0,0],[40,0,0,0,0,0]]
+def gen():
+    if gentree[0] > 0: write(401,gentree[0])
+    else: write(402,abs(gentree[0]))
+    del gentree[0]
+    return gentree
+def index_move(val,ad):
+    global turn
+    turn -= val
+    write(500 if ad else 501,val)
+    write(71,turn)
+def index_lol(li,n,hol=0):
+    if not hol: li[1:8] = list(reversed(li[1:8]))
+    for h in range(n):
+        li.append(li[0])
+        del li[0]
+    if not hol: li[1:8] = list(reversed(li[1:8]))
+    return li
+A_pos = pos_ct(24,4,posx(-258.38, 191.17, 181.35+70, 80.25, -179.77, 80.37))
+B1_pos = pos_ct(12,3,posx(372, 321.15, 184.28+70, 40.08, 180, 40.24))
+B2_pos = pos_ct(12,4,posx(241.99, 401.29, 183.55+70, 58.14, -180, 58.32))
+D_pos = [posx(-78.09, 330.68, 181.54+10, 24.6, -180, 24.54),posx(-78.1-40, 330.68, 181.54+10, 17.25, -180, 17.19)]
+C_pos = [posx(-8.16, 525.72, 204.02+70, 66.26, 180, 66.51),posx(-128.16, 525.72, 214.02, 66.26, 180, 66.51)]
+index_pos = [posx(350.02, 256.26, 251.54, 35.38, 180, 35.76),posx(350.02, 256.26, 251.54+50, 35.38, 180, 35.76)]
+drl_report_line(ON)
+port = 20001
+sock = server_socket_open(port)
+sock_write(A)
+sock_write(index_)
+sock_write(B1)
+sock_write(B2)
+
+poss = sock_read()
+poss_d = sock_read()
+log_a = sock_read()
+Alo = sock_read()
+D = sock_read()
+server_socket_close(sock)
+mwait(0)
+begin_blend(20)
+drl_report_line(ON)
+while 1:
+    wait(0.3)
+    if read(600):
+        write(600,0)
+        break
+
+movel(A_pos[D[0]-1])
+grip(70,1,70)
+qt = 10 if A[1][D[0]] > 10 else 0
+write(D[0]+10,qt)
+A[1][D[0]] = qt
+movec(trans(A_pos[D[0]-1],[1,1,1,0,0,0]),D_pos[0])
+grip(10,0,60)
+
+movel(A_pos[D[1]-1+20])
+grip(70,1,70)
+qt = 10 if A[6][D[1]] > 10 else 0
+write(D[1]+30,qt)
+A[6][D[1]] = qt
+movec(trans(A_pos[D[1]-1+20],[1,0,1,0,0,0]),D_pos[1])
+grip(10,0,60)
+
+Aw = lambda y,x : (y-1)*4+x+10
+for i in range(len(poss)):
+    y,x,f,j,q = poss[i]
+    index_move(poss_d[i][0],poss_d[i][1])
+    index_ = index_lol(index_,poss_d[i][0],poss_d[i][1])
+    if q==1 or q==5:
+        tli = [0,0,-60,0,0,-35]
+    elif q==3 or q==7:
+        tli = [0,0,-60,0,0,35]
+    else:
+        tli = [0,0,-60,0,0,0]
+    movel(A_pos[(y-1)*4+x-1])
+    grip(70,1,10)
+    movel(trans(A_pos[(y-1)*4+x-1],tli),2000,4000)
+    qt = 10 if A[y][x] > 10 else 0
+    write(Aw(y,x),qt)
+    movel(trans(A_pos[(f-1)*4+j-1],tli))
+    movel(trans(A_pos[(f-1)*4+j-1],[0,-0.1,-71,0,0,0]),time=0.5)
+    if q in [1,3,5,7]: mwait(0)
+    else: wait(0.1)
+    set_tool_digital_outputs([-1,2])
+    movel([0,0,70,0,0,0],mod=1)
+    write(Aw(f,j),A[y][x]-qt)
+    A[f][j] = A[y][x]-qt
+    A[y][x] = 0
+    turn += 1
+    write(71,turn)
+
+amovec(trans(D_pos[1],[0,0,60,0,0,0]),index_pos[1])
+def B_move(qs):
+    global index_
+    for e in range(2):
+        index_m = []
+        for save_ in [[index_[0]]+list(reversed(index_[1:8])),index_[:]]:
+            for i in range(8):
+                if save_[i] == qs+1:
+                    index_m.append(i)
+                    break
+        movel(trans(index_pos[1],[0,30,0,0,0,0]))
+        n = index_m.index(min(index_m))
+        index_ = index_lol(index_,index_m[n],n)
+        write(501-n,index_m[n])
+        index_[0] = 0
+        gen()
+        movel([0,0,-50,0,0,0],mod=1)
+        wait(0.7*index_m[n])
+        movel([0,-30,0,0,0,0],mod=1)
+        set_tool_digital_outputs([1,-2])
+        wait(0.19)
+        movel([0,0,70,0,0,0],mod=1)
+        write(1,0)
+        movel([0,40,0,0,0,0],mod=1)
+        movec(trans(D_pos[0],[0,0,100,0,0,0]),A_pos[A_start-1])
+        movel([0,0,-60,0,0,0],mod=1)
+        y,x = 1,A_start
+        Alo[y][x] = Alo[y][x]-1
+        oi = Alo[y][x]
+        while 1:
+            for f,j,t in abp(y,x,1):
+                if Alo[f][j] == oi+1:
+                    Alo[f][j] = oi
+                    y,x = f,j
+                    movel(cvpos[t],mod=1)
+                    break
+            else: break
+        movel([0,0,60,0,0,0],mod=1)
+        movec(trans(A_pos[(y-1)*4+x-1],[1,2,0.5,0,0,0]),C_pos[1])
+        grip(10,0,60)
+        write(64+qs,qs+1)
+        gen()
+        turn_pos = [2,1,0,-1]
+        li = [B1,B2][e]
+        li_pos = [B1_pos,B2_pos][e]
+        li_w = [39,51][e]
+        for y,x in for_g(1,1,5,5):
+            if 0 < li[y][x] < 5:
+                turn_n = turn_pos[li[y][x]-1]
+                t_90 = -90 if turn_n > 0 else 90
+                break
+        amovel(C_pos[0])
+        for i in range(abs(turn_n)):
+            amovel([0,0,0,0,0,t_90],mod=1)
+        mwait(0.8)
+        grip(70,1,60)
+        write(64+qs,0)
+        for i in range(abs(turn_n)):
+            amovel([0,0,0,0,0,~t_90+1],mod=1)
+        movel(li_pos[(y-1)*[3,4][e]+x-1])
+        mwait(0)
+        grip([70,10][qs],0,70)
+        write((y-1)*[3,4][e]+x+li_w,[10,20][qs]+li[y][x])
+
+def posu(n,y,x,e):
+    global li
+    li = [B1,B2][e]
+    li_pos = [B1_pos,B2_pos][e]
+    lx = [3,4][e]
+    li_w = lambda y,x : (y-1)*lx+x+[39,51][e]
+    cv = [[-1,0],[0,1],[1,0],[0,-1]]
+    cvpos = [[0,-40,0,0,0,0],[-40,0,0,0,0,0],[0,40,0,0,0,0],[40,0,0,0,0,0]]
+    cn = li[y][x]-1
+    for i in [cv,cvpos]:
+        i += i[0:cn]
+        del i[0:cn]
+    f,j = y+cv[n][0],x+cv[n][1]
+    if li[f][j] == -99:
+        return 1
+    write(72,n+1)
+    movel(li_pos[(y-1)*lx+x-1])
+    t_1234 = [0,-1,-2,1][n]
+    t_90 = 90*(-1 if t_1234 == -2 else t_1234)
+    movel([0,0,-70,0,0,0],mod=1)
+    set_tool_digital_outputs([1,-2])
+    wait(0.19)
+    if t_1234 == -2:
+        amovel([0,0,0,0,0,-90],2500,3000,mod=1)
+    movel([0,0,10,0,0,0],mod=1)
+    write(li_w(y,x),0)
+    if n:
+        mwait(0)
+    amovel([0,0,0,0,0,t_90],2500,3000,mod=1)
+    movel(cvpos[n],mod=1)
+    if n:
+        mwait(0)
+    grip(10,0,70)
+    if t_1234 == -2:
+        amovel([0,0,0,0,0,90],2500,3000,mod=1)
+    dds = 10
+    if read(li_w(f,j)) == 20:
+        dds = 30
+    wwn = li[y][x]+n if li[y][x]+n <= 4 else (li[y][x]+n)%4
+    write(li_w(f,j),wwn+dds)
+    li[f][j] = wwn
+    li[y][x] = 0
+
+B_move(0)
+for i in log_a:
+    for e in range(2):
+        li = [B1,B2][e]
+        for y,x in for_g(1,1,5,5):
+            if 0 < li[y][x] < 10:
+                posu(i,y,x,e)
+                break
+B_move(1)

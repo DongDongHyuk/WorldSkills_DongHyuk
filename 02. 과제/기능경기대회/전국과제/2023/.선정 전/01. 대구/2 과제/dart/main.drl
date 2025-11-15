@@ -1,0 +1,456 @@
+# 0. Algorithm
+def exc(m,s,e,li,g=-1,p=-1):
+    m = list(m)
+    li = list(li) if t < 3 else None
+    s2i = lambda n: ord(n)-87 if ord(n) > 96 else int(n)
+    if g != -1:                                                 # 점, 선 정렬 - 팩을 잡거나 놓기
+        m[s] = '0' if g else p
+        li.append(p) if g else li.remove(p)
+        return [(''.join(m),tuple(li)),[s,g,s2i(p),e]]         # [팩 놓을 위치,그리퍼,팩,타고 내려올 위치]
+    m[s],m[e] = m[e],m[s]
+    if t == 1 and m[s] == 'b':                                  # 선 정렬 - 다리 이동
+        step = [e,s]
+        m[e],m[e+(e-s)] = 'b','0'
+        n = [i+sx for i in range(sx) if m[i+sx] != '0']
+        if n:
+            n, = n
+            m[n+(s-e)],m[n] = m[n],'0'
+        if m[s+sx] != '0':
+            step = [e+(e-s),e]
+        step += [m.index('b')]                                  # 다리 위치(앞쪽 기준) 
+        step += [n,n+(s-e),int(m[n+(s-e)])] if n else [-1]*3    # [s,e,다리 위치,다리위의 팩 이동s,"e,팩]
+    else:
+        if t == 2:
+            li = [1,-1] if li == [3,-3] else [3,-3]
+            step = [e,s,int(m[e]),int(m[s])]
+        else:
+            p = m[s]
+            step = [e,s,s2i(p)]
+    return [(''.join(m),tuple(li)) if t < 3 else ''.join(m),step]
+def aro(pos):
+    if pos in cache:
+        return cache[pos]
+    res = []
+    dy,dx = [([-1,0,1,0]*5,[0,1,0,-1]*5),([0,0,0,0]*5,[-3,-1,1,3]*5)][t==1]
+    dz = [-2,-2,-2,-2,-1,-1,-1,-1,0,0,0,0,1,1,1,1,2,2,2,2]
+    y,x,z = (pos // sx) % sy, pos % sx, pos // size
+    for i in range(20):
+        ny,nx,nz = y + dy[i],x + dx[i],z + dz[i]
+        if -1 < ny < sy and -1 < nx < sx and -1 < nz < sz:
+            n = ny * sx + nx + (size * nz)
+            res.append(n)
+    cache[pos] = res
+    return res
+def exp(n,m,pos=-1):
+    res = []
+    if t < 3:
+        m,li = m
+    for i in range(size*sz) if n else [pos]:        
+        if t == 0 and m[i] not in '0b' and len(li) < 2 and \
+            (i >= size*(sz-1) or m[i+size] == '0'):                                         # 점 정렬 - 팩 잡기            
+                res.append(exc(m,i,-1,li,1,m[i]))
+        if t == 0 and li and m[i] == '0' and \
+           (i >= size*(sz-1) or m[i+size] == '0') and \
+           (i < size*(sz-2) or m[i-size] != '0'):                                           # 점 - 팩 놓기
+            for j in li:
+                res.append(exc(m,i,-1,li,0,j))                
+        if ((n and m[i] != '0') and t not in [1,2]) or i in fix:                            # i가 빈칸이 아닐때(선,면 정렬 제외), i가 고정일때
+            continue        
+        for j in [j for j in aro(i)
+                  if m[j] not in ['x','0x'][n > 0] and j not in fix]:
+            if t == 0 and len(li) == 2:                                                    # 그리퍼 제한
+                continue            
+            if t == 0 or (t == 3 and n):                                                    # 점, 공간 정렬(정렬) - 3 차원 조건
+                if (i >= size and m[i - size] == '0') or \
+                    (j < size*(sz-1) and m[j + size] != '0'):
+                        continue
+            if t == 1:
+                d = abs(i-j)
+                if d == 1 and m[j] == 'b' and m[i] not in '0b' and len(li) < 1:            # 선 정렬 - 팩 잡기 
+                    res.append(exc(m,i,-1,li,1,m[i]))                    
+                if m[i] != '0':                                                            # 선 정렬 - i가 빈칸이 아닐때
+                    continue
+                if d == 1 and m[j] == 'b' and m[j+sx] == '0' and li:                       # 선 정렬 - 팩 놓기
+                    for k in li:
+                        res.append(exc(m,i,j,li,0,k))
+                b0 = (m[j] in '135' and any([k in '135' for k in li])) or \
+                     (m[j] in '246' and any([k in '246' for k in li]))                      # 공압, 그리퍼 제한                
+                b1 = d in [sx-3,sx+3] or (i >= sx and m[i-sx] != 'b')                       # 이동 제한, 2층에 밑이 다리가 아닐때                
+                b2 = m[j] == 'b' and m[sx:].count('0') < sx-1                               # 다리 이동 조건                
+                b3 = d == 3 and (m[j] == 'b' or \
+                                 m[i+((j-i)//3)] != 'b' or m[sx:].count('0') < sx)          # 다리 넘어 이동 조건                
+                b4 = i >= sx and (m[i - sx] != 'b' or m[j] == 'b')                          # 다리위에 팩 적층 조건                
+                if any([b0,b1,b2,b3,b4]):
+                    continue
+            if t == 2 and i-j not in li:
+                continue                        
+            res.append(exc(m,i,j,li if t < 3 else -1) if n else [j,j])            
+    return res
+def bfs(n,m,*a):
+    global res
+    if n == 0:
+        s,e = a
+    if n == 1:
+        leaf,pos,pack = a
+    if n == 2:
+        li, = a
+    cur = m if n else s
+    que = deque([cur])
+    mkd,step = {cur:-1},{cur:-1}
+    while 1:
+        cur = que.popleft()
+        if n == 0 and cur == e:
+            break
+        if n == 1:
+            cur0,li = cur if t < 3 else (cur,None)
+            if cur0 == leaf or \
+               (pos != -1 and cur0[pos] == pack and \
+                (t != 1 or not li)):
+                    break
+        if n == 2 and all([cur[i] == '0' for i in li]):
+            break
+        for i,j in exp(n,cur if n else m,cur):
+            if i not in mkd:
+                que.append(i)
+                mkd[i],step[i] = cur,j
+    mkd[-2] = cur
+    path = [step[cur]]
+    while mkd[cur] != -1:
+        cur = mkd[cur]
+        path.append(step[cur])
+    if n:
+        res += path[::-1][1:]
+        return mkd[-2]
+    return path[::-1][1:]
+def sort(m,leaf,e):
+    pack = leaf[e]
+    s = m.index(pack)
+    road = [s]+bfs(0,m,s,e)
+    for i in range(len(road)):
+        n = road[i]
+        if t == 3 and n < 18:            
+            if i:
+                fix.append(road[i-1])
+                fix.append(road[i-1]+9)
+            li = [j for j in list(range(n,27,9)) if j != s][::-1]
+            for j in range(4):
+                m = bfs(2,m,li[:j])
+            if i:
+                del fix[-2:]
+        m = bfs(1,m,leaf,n,pack)    
+    fix.append(e)
+    return m
+def main(g_t,m,*a):    
+    global t,sy,sx,sz,size,fix,res,cache
+    t = g_t
+    sy,sx,sz = [[1,2,3],[1,7,2],[3,3,1],[3,3,3]][t]
+    size = sy * sx
+    fix = []
+    res = []
+    cache = {}      # cache reset
+    if t == 0:
+        m,leaf = (m,()),'142530'
+        bfs(1,m,leaf,-1,-1)
+    if t == 1:
+        m,leaf = (m,()),'1234bb00000000'
+        for i in range(sx):
+            m = bfs(1,m,leaf,i,leaf[i])
+            fix.append(i)
+    if t == 2:
+        m,leaf = (m,(1,-1)),'123456789'
+        for i in range(3):
+            m = bfs(1,m,leaf,i,leaf[i])
+            fix.append(i)
+        bfs(1,m,leaf,-1,-1)
+    if t == 3:
+        leaf, = a
+        for i in range(18):
+            if leaf[i] != '0':
+                m = sort(m,leaf,i)
+        for i in range(3):
+            for j in range(i,27,9):
+                if j not in fix:
+                    m = bfs(1,m,leaf,j,leaf[j])
+                    fix.append(j)
+        m = bfs(1,m,leaf,-1,-1)
+    return res
+
+# 1. Header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_motion_end(DR_CHECK_OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(400)
+begin_blend(10)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos,sol=-1):
+    movejx(pos,sol=sol if sol != -1 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1):
+    amj([x,y,z,a,b,c],mod=1)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [400,300,300,400][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0        # 0 : ElcGripper, 1 : AirGripper
+def cht(t=0.6,n = -1):
+    global tool,pos
+    if n != -1 and n == tool:
+        return -1
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+def cht(t=0.6):
+    global tool,pos
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else: # 그리퍼
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+
+# 2. Device communication
+ser=serial_open("COM")
+def ts(ad,m=[],y=0,x=0,b=True):
+    if b:
+        ad += 100 * (1 + T)
+    k='00'+['W','R'][bool(y)]+'SB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not y else y*x # 처리할 데이터 갯수
+    ad = [0]*(3-len(str(ad))) + list(map(int,str(ad)))
+    k+=[ord(str(abs(i))) for i in ad]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not y:
+        for i in m:
+            if i<0:
+                i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.02 if n is 1 else 0.05)
+    k=ser.read(ser.inWaiting())
+    if y:#읽기 일 때
+        for i in range(0,y*x*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):
+                v-=2**16 
+            m.append(v)
+        return m if len(m) > 1 else m[0]
+def write(*a,b = True):
+    if isinstance(a[0],int):
+        a = [a]
+    for i,j in a:
+        ts(i,j if isinstance(j,list) else [j],b=b)
+def read(ad,y=1,x=1):
+    return ts(ad,[],y,x)
+
+# - writing init        temp
+def wt_init():
+    global T
+    li1 = [[4, 1, 5, 3, 2, 0], [5, 0, 3, 0, 4, 0, 0, 2, 1, 0, 0, 0, 0, 0], [6, 7, 1, 3, 4, 8, 9, 5, 2], [3, 0, 13, 5, 9, 14, 12, 10, 0, 0, 0, 0, 7, 1, 11, 8, 6, 0, 0, 0, 0, 0, 0, 4, 2, 0, 0]]
+    li2 = [-1, -1, -1, [5, 13, 7, 11, 6, 0, 4, 14, 0, 3, 2, 0, 8, 10, 0, 0, 0, 0, 9, 12, 0, 1, 0, 0, 0, 0, 0]]
+    for i in range(4):
+        T = i
+        write(0,li1[i])
+        if i == 3:
+            write(len(li1[i]),li2[i])
+wt_init()
+    
+# - reading state
+root = [-1] * 4  
+leaf = [-1] * 4
+for i in range(4):
+    T = i
+    y,x = [2,7,3,9][i],[3,2,3,3][i]
+    for j in range(2 if i == 3 else 1):
+        m = read(y*x*j,y,x)[:]
+        if j:
+            leaf[i] = m[:]
+        else:
+            root[i] = m[:]
+        
+# - converting state
+def con(m):
+    if i == 1:
+        n = m.index(5)
+        m[n],m[n+1]= 'b','b'
+    if i == 3:
+        m = [chr(87+j) if j > 9 else j for j in m]
+    return ''.join(map(str,m))
+for i in range(4):
+    root[i] = con(root[i])
+    if i is 3:
+        leaf[i] = con(leaf[i])
+        
+# - posing
+def ps(pos,y,x,z,sy=40,sx=40,sz=60):
+    a = y * x
+    s = y * x * z
+    pos = [pos] * s
+    for i in range(1,s):
+        if not i % a:
+            pos[i] = trans(pos[i-a],[0,0,sz,0,0,0])
+        elif i % x:
+            pos[i] = trans(pos[i-1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+poss = [
+[ps(posx(425.76, 177.76, 227.58, 179.78, -90, -90),1,2,3,0,80,40),
+ps(posx(-309.66, 89.73, 226.7, 89.71, 90, 90),1,7,2),
+ps(posx(207.44, 378.68, 227.75, 0.26, 90, 90.01),3,3,1),
+ps(posx(-106.13, 382.87, 228.38, 179.96, 90, 90),3,3,3,80,80)],
+[ps(posx(426.1, 176.86, 144+40, 0.15, 90, -90),1,2,3,0,80,40),
+ps(posx(-307.96, 90.45, 142.57+40, 89.93, 89.99, -90.05),1,7,2),
+ps(posx(207.76, 377.1, 143.34+60, 0.27, 90, -90),3,3,1),
+-1]
+]
+
+# - motions
+def mt1(p,g,d=[],mod=0,h=-1,z=0,a1=1500,a2=1000,b1=True):
+    b2 = not g and not (T == 1 and isinstance(d[0],list))
+    if T == 1 and p > 6:
+        z += 40
+    tp = tr(pos[p],[0,0,[0,3][b2]-z,0,0,0])    
+    ml(up(tp,mod,h),a=a1)
+    ml(tp,a=a2,r = 5)
+    if b2:
+        rml(z=-3,acc=300)
+    grip(g)
+    if d:
+        if isinstance(d[0],int):
+            d = [d]
+        for i in d:
+            if i != None:
+                ad,val = i
+                write(ad,val)
+    if b1:
+        ml(up(tp))
+
+# 3. Main
+def AB(r):
+    global gli
+    s,g,p,bp = r
+    li = [s,0 if g else p]
+    if not g and tool not in gli:
+        cht()
+    if T == 1 and g and \
+      ((not tool and p in [1,3]) or (tool and p in [2,4])):
+        cht()
+    if bp is not -1:
+        ml(up(pos[bp]),a=1000)
+        ml(up(pos[bp],1,25))
+        mt1(s,0,li,1,25,a1 = 500)
+    else:
+        mt1(s,g,li)
+    if g:
+        gli[tool] = p
+    else:
+        del gli[tool]        
+def A():
+    global gli
+    mjx(up(pos[1]),sol = 3)
+    gli = {}
+    for i in range(len(res)):
+        r = res[i]
+        if tool in gli:
+            cht()
+        if len(r) is 4:            
+            AB(r)
+        else:
+            s,e,p = r
+            mt1(s,1,[s,0])
+            mt1(e,0,[e,p])
+def C():
+    mjx(up(pos[4]),sol = 3)
+    cht(0)
+    for i in range(len(res)):
+        s,e,a,b = res[i]
+        write(9,(2 if i % 2 else 1))
+        for j in range(2):
+            mt1(s,not j,[s,a if j else 0],z = 10 if not j and b < 5 else 0)
+            cht()
+            mt1(e,not j,[e,b if j else 0],z = 10 if j and b < 5 else 0)
+def D():
+    rml(z=100)
+    mjx(up(pos[4]),sol = 2)
+    def ph(pos):
+        p = pack if pos in [s,e] else read(pos)
+        return 20 if p < 5 else 10 if p < 10 else 0
+    for i in range(len(res)):
+        s,e,pack = res[i]
+        sf,ef = s//9+1,e//9+1
+        write([54,[sf,ef]],[s,20+pack],[e,20])
+        for j in range(2):
+            pos0 = [s,e][j]
+            z = sum(map(ph,range(pos0%9,pos0,9)))
+            mt1(pos0,not j,[pos0,[0,pack][j]+20],z=z)
+        write([s,0],[e,pack])
+def B():
+    global gli
+    gli = {}
+    rmj(90)
+    mjx(up(pos[0],h=400),sol = 3)
+    for i in range(len(res)):
+        r = res[i]
+        if  len(r) is 4:
+            AB(r)
+        else:
+            if len(r) is 6:
+                if tool in gli:
+                    cht()
+                s,e,bp,a,b,p = r
+                z = [15,20][tool]
+                b0 = a is not None
+                li = [[read(0,1,7).index(5),0],([a,0] if b0 else None)]
+                mt1(s,1,li,z=z,b1=False)
+                li = [[bp,5],[b,p] if b0 else None]
+                mt1(e,0,li,1,0,z=z,a1=500)
+                ml(up(pos[e]))
+            else:
+                s,e,p = r
+                if (not tool and p in [1,3]) or (tool and p in [2,4]):
+                    cht()
+                mt1(s,1,[s,0])
+                mt1(e,0,[e,p])
+        
+#write(30,1,b=False)
+import time         # temp
+time_start = time.time()        # temp
+
+# - calcurating
+#ress = [[[4, 1, 2, -1], [2, 1, 5, -1], [2, 0, 2, -1], [3, 4, 3], [1, 1, 1, -1], [1, 0, 5, -1], [4, 3, 3], [2, 5, 2], [0, 1, 4, -1], [0, 0, 1, -1], [5, 2, 2], [3, 4, 3], [1, 1, 5, -1], [1, 0, 4, -1], [3, 0, 5, -1]],
+        #[[2, 3, 3], [8, 2, 1], [2, 1, 1, -1], [1, 2, 1, 7, 8, 2], [8, 9, 2], [0, 0, 1, 1], [4, 5, 4], [3, 4, 3], [1, 2, 2, 9, 10, 2], [10, 9, 2], [9, 1, 2], [4, 1, 3, -1], [3, 4, 3, -1, -1, -1], [2, 0, 3, 3], [5, 1, 4, -1], [4, 5, 4, -1, -1, -1], [3, 0, 4, 4]],
+        #[[2, 1, 7, 1], [3, 0, 6, 3], [1, 0, 3, 1], [8, 5, 8, 2], [5, 4, 4, 2], [4, 1, 3, 2], [5, 4, 3, 4], [5, 2, 7, 3], [4, 3, 6, 4], [6, 3, 4, 9], [5, 4, 6, 7], [6, 3, 9, 4], [4, 3, 4, 7], [6, 3, 7, 9], [4, 3, 9, 4], [7, 4, 9, 5], [8, 7, 9, 8]],
+        #[[12, 9, 7], [9, 1, 7], [0, 10, 3], [3, 0, 5], [10, 9, 3], [1, 18, 7], [2, 1, 13], [18, 10, 7], [10, 2, 7], [23, 8, 4], [13, 3, 1], [4, 10, 9], [14, 4, 11], [3, 18, 1], [4, 3, 11], [16, 4, 6], [7, 13, 10], [8, 7, 4], [24, 12, 2], [15, 21, 8], [21, 22, 8], [6, 21, 12], [7, 6, 4], [5, 8, 14], [8, 7, 14], [18, 19, 1], [21, 15, 12], [22, 5, 8], [13, 14, 10], [12, 13, 2], [19, 11, 1], [10, 18, 9], [13, 10, 2], [14, 8, 10], [5, 13, 8], [13, 12, 8], [8, 5, 10], [5, 13, 10], [15, 16, 12], [16, 22, 12], [22, 19, 12], [11, 5, 1], [5, 22, 1], [22, 21, 1]]]       # temp
+ress = []
+for i in range(4):
+    if i == 3:
+        ress.append(main(i,root[i],leaf[i]))
+    else:
+        ress.append(main(i,root[i]))
+    
+for i in [0,2,3,1]:
+    grip(0)  
+    tool = 0 
+    T,pos,res = i,poss[tool][i],ress[i]
+    Run = [A,B,C,D][i]
+    Run()
+    
+#write(30,1,b=False)
+time_end = time.time() - time_start         # temp
+minute,second = int(time_end // 60),int(time_end % 60)         # temp
+tl('{}m {}s\n'.format(minute,second))         # temp

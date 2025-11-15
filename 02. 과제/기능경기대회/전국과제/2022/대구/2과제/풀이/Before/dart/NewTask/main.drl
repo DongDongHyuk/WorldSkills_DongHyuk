@@ -1,0 +1,256 @@
+from DRCF import *
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = list(map(lambda a: ord(a),i[1:-1]))
+    
+def write(ad,val):
+    ser = serial_open(port = "COM")
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad):
+    ser = serial_open(port = "COM")
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+    
+buzz = lambda n: write(50,n)
+buzz(2)# 시작 부저
+drl_report_line(OFF)
+from collections import deque
+
+set_tcp('전기그리퍼'); set_tool('Tool Wei')
+set_velx(velx); set_accx(accx); begin_blend(blend)
+printf = lambda n: tp_log('{}'.format(n))
+ 
+#알고리즘    
+class Graph: # 파레트 길찾기 
+    def __init__(self,edges):
+        self.edges = edges
+        self.graph = {}
+        for start,end in self.edges:
+            end = list(map(int,end.split(',')))
+            self.graph[start] = end
+            
+edge1 = [(0,'1,5,6'),(1,'0,2,7'),(2,'1,3,7'),(3,'2,4'),(4,'3,8,9'),(5,'0,6,10'),(6,'0,5,7,10,12'),
+         (7,'1,2,6,8'),(8,'4,7,13'),(9,'4,13,14'),(10,'5,6,11,15'),(11,'10,12,15,16'),
+         (12,'6,11,13,18'),(13,'8,9,12,14'),(14,'9,13,18,19'),(15,'10,11,20'),(16,'11,17,20'),
+         (17,'16,18,22,23'),(18,'12,14,17,19,24'),(19,'14,18,24'),(20,'15,16,21'),(21,'20,22'),
+         (22,'17,21,23'),(23,'17,22,24'),(24,'18,19,23')]
+
+Pal = Graph(edge1)
+
+class findPath:
+    def __init__(self,start,end,ObstaclePos):
+        self.start = start
+        self.end = end
+        self.ObstaclePos = list(map(int,ObstaclePos.split(',')))
+
+    def bfs(self):
+        que = deque([self.start])
+        marked = {self.start:'start'}
+        rule = lambda n: n not in self.ObstaclePos
+        node = None
+        while que and node != self.end:
+            node = que.popleft()
+            for next_node in Pal.graph[node]:
+                if next_node not in marked and rule(next_node):
+                    marked[next_node] = node
+                    que.append(next_node)
+        return marked
+
+    def recoding(self,marked):
+        node = self.end
+        recode = [node]
+        while marked[node] != 'start':
+            node = marked[node]
+            recode.append(node)
+        return recode[::-1]
+
+    def Path(self):
+        result = self.recoding(self.bfs())
+        printf(' - '.join(map(str,result)))
+        return self.recoding(self.bfs())
+    
+class EFP:
+    def __init__(self,board: str):
+        self.br = board[:]
+
+    def change(self,br:str,now_pos:int,next_pos:int):
+        br = list(br)
+        br[now_pos],br[next_pos] = br[next_pos],'0'
+        return ''.join(br)
+
+    def next_nodes(self,br):
+        result = []
+        num_pos = [ct for ct,i in enumerate(br) if not int(i)]
+        rule = lambda posN: br[posN] not in [('-1'if self.mode else'9'),'0']
+        for pos in num_pos:
+            if pos not in list(range(4)) and rule(pos-4):
+                result.append(self.change(br,pos,pos-4)) # up
+            if pos not in list(range(12,16)) and rule(pos+4):
+                result.append(self.change(br,pos,pos+4)) # down
+            if pos not in list(range(0,13,4)) and rule(pos-1):
+                result.append(self.change(br,pos,pos-1)) # letf
+            if pos not in list(range(3,17,4)) and rule(pos+1):
+                result.append(self.change(br,pos,pos+1)) # right
+        return result
+ 
+    def bfs(self,Exit):
+        que = deque()
+        que.append(self.br)
+        marked = {self.br:'start'}
+        node = None # index range Error
+        def isDone(node):
+            if not node: return not node
+            if self.mode:
+                num_pos = [ct for ct,i in enumerate(node) if not int(i)]
+                return Exit not in num_pos # 비워야할 위치
+            else: return node.index('3') != Exit
+        while isDone(node):
+            node = que.popleft()
+            for next_node in self.next_nodes(node):
+                if next_node not in marked:
+                    marked[next_node] = node
+                    que.append(next_node)
+            if (not que): exit(printf('unsolved !!!'))
+        marked['arrival'] = node
+        self.br = node
+        return marked
+
+    def recoding(self,marked):
+        node = marked['arrival']
+        recode = [node]
+        while marked[node] != 'start':
+            node = marked[node]
+            recode.append(node)
+        return recode[::-1]
+
+    def escape_parking_2(self,Exit,mode: '0:EFP 1:Resolt'):
+        self.mode = mode
+        marked = self.bfs(Exit)
+        recode = self.recoding(marked)
+        def convert(recode):
+            new_recode = []
+            for i in range(len(recode)-1):
+                if i+1 > len(recode): break
+                now_0_pos = [j for j in range(16) if not int(recode[i][j])]
+                next_0_pos = [j for j in range(16) if not int(recode[i+1][j])]
+                end = [i for i in now_0_pos if i not in next_0_pos]
+                start = [i for i in next_0_pos if i not in now_0_pos]
+                new_recode.append((start[0],end[0]))
+            return new_recode
+        printf(convert(recode))
+        return convert(recode)
+
+#구현
+a = [posx(309.5, 319.26, 16.54, 90,180,0)] * 16
+b = [posx(81.77, 389.67, 15.92, 90,180,0)] * 25
+c = [posx(-249.18, 421.61, 15.82, 90,180,0)] * 4
+d = posx(-249.07, 481.69, 15.78, 90,180,0)
+
+isGrip = False
+up_pos_value = [[0,0,40,0,0,0],[0,0,80,0,0,0]]
+up_pos = lambda n: up_pos_value[isGrip if not n else 0]
+
+for ct,pal in enumerate([a,b]):
+    n = (5 if ct else 4)
+    for i in range(1,len(pal)):
+        if not i % n: pal[i] = trans(pal[i-n],[0,40,0,0,0,0])
+        else: pal[i] = trans(pal[i-1],[-40,0,0,0,0,0])
+for i in range(1,4):c[i] =  trans(c[i-1],[0,-40,0,0,0,0])
+        
+def grip(n):
+    global isGrip
+    wait(0.14)
+    set_tool_digital_outputs([1*n,2*-n])
+    isGrip = bool(n > 0)
+    wait(0.24)
+    
+def move(start,end,ad1=-1,ad2=-1,val=-1,hold = 1):
+    for ct,pos in enumerate([start,end]):
+        movel(trans(pos,up_pos(hold)))
+        movel(pos)
+        grip([1,-1][ct]) 
+        if -1 not in [ad1,ad2,val]:
+            write(([ad1,ad2][ct]),([0,val][ct]))
+        movel(trans(pos,up_pos(hold)))
+    
+def solving_EFP(result): # [(a,b),(c,d)]
+    for start,end in result:   
+        value = read(start)
+        move(a[start],a[end],start,end,value)
+        if value is 3: write(43,end)
+    
+Fuel = read(41)
+def Filling_Fuel(now_pos):
+    global Fuel
+    move(b[now_pos],d,now_pos+16,45,1,0)
+    write(44,50) # 폼지 B의 차 위치 -> 표시 x
+    buzz(1) # 부저 
+    move(c[0],c[3])
+    write(41,4)
+    move(d,b[now_pos],45,now_pos+16,1,0)
+    write(44,now_pos)
+    Fuel = 4
+
+def counting_Fuel():
+    global Fuel
+    move(c[Fuel-1],c[Fuel-2])
+    Fuel -= 1
+    write(41,Fuel)
+    buzz(1)
+    
+def solving_pal_findPath(result):
+    now_pos = result[0] # 내 위치
+    for ct,pos in enumerate(result[1:]): # Turn
+        Exit = pos if pos < 15 else pos - 15
+        if Fuel is 1: Filling_Fuel(now_pos) # 주유소
+        result = [[(1, 2)],[(2, 1), (3, 2), (5, 9), (6, 5), (2, 6), (1, 2), (2, 3)],[(3, 2), (2, 1), (6, 2), (5, 6), (1, 5), (9, 13), (8, 9), (4, 8), (5, 4)],
+        [(9, 5), (8, 9), (4, 8)],[(5, 1), (9, 5), (8, 9), (12, 8), (13, 12), (9, 13)],[(8, 4), (12, 8), (13, 12)],
+        [(5, 9), (10, 11), (6, 10), (12, 13), (8, 12), (9, 8), (13, 9), (9, 5), (5, 6), (1, 5), (2, 1), (6, 2), (2, 3)],
+        [(3, 2)],[(2, 6), (1, 2), (5, 1), (6, 5), (5, 9), (4, 5), (8, 4), (9, 8)]]
+        solving_EFP(result[ct]) # A 파레트
+        #solving_EFP((case1.escape_parking_2(Exit,0))) # A 파레트
+        move(b[now_pos],b[pos],now_pos+16,pos+16,read(now_pos+16) if  pos != end else 11)
+        write(44,pos)
+        now_pos = pos # 내 위치
+        counting_Fuel() # 기름 관리    
+        
+def main():
+    result = case2.Path() # B 파레트 길찾기
+    solving_pal_findPath(result) # Run
+
+a_state = ''.join([str(read(i)) for i in range(16)])
+li1 = []
+for i in range(16,41):
+    if read(i) is 1: start = i - 16
+    if read(i) is 10: end = i - 16
+    if read(i) is 9: li1.append(i - 16)
+object = ','.join(map(str,li1))
+
+case1 = EFP(a_state)
+case2 = findPath(start,end,object)
+main()
+
+buzz(1)
+wait(0.34)
+buzz(1)
+
+

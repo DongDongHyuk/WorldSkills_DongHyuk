@@ -1,0 +1,36 @@
+speed = 300; a = 0
+set_velx(speed), set_accx(speed)
+
+move_home(1)
+begin_blend(4)
+if a == 0:
+    movec(trans(index_pos[1],[-1,1,0,0,0,0]),index_pos[1])
+#movel(index_pos[1]) # down    
+for i in range(2): # 0~2
+    if i == 0: # 제일 낮은 지점에서 없으면 팩 없음 0 
+        grip(1) # grip!
+        wait(0.21)
+        if get_tool_digital_input(1) == 1:
+            grip(-1) # grip off
+            movel([0,0,10,0,0,0], mod = 1)
+            break
+        grip(-1) # grip off   
+    # 제일 낮은 지점에 팩이 잡힐때 1,2,3
+    movel([0,0,10,0,0,0], mod = 1) # 10씩 올림
+    grip(1) # grip!
+    wait(0.21)
+    if get_tool_digital_input(1) == 1: # -20 지점에 없으면 1 있으면 2 or 3
+        indexT[a] = i + 1
+        grip(-1) # grip off
+        break
+    if i == 1 and get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0: 
+        indexT[a] = 3
+        grip(-1) # grip off
+        break
+    grip(-1) # grip off
+write(30,1)
+wait(0.4)
+if a < 7: index_check(a+1) # 8번(재귀 함수 미쳤다리)
+else: 
+    movel(index_pos[0])
+    end_blend() 

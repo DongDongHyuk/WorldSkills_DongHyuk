@@ -1,0 +1,3 @@
+velx,accx,blend = 1200,1000,0
+sub_program_run('main')
+#sub_program_run('sub')

@@ -1,0 +1,145 @@
+bot = sub_program_run('bot') # bot_mk1
+put_doll = bot.put_doll
+tl = lambda *n: tp_log(' '.join(map(str,n)))
+drl_report_line(OFF)
+
+ser=serial_open("COM")        
+def ts(pt,r,c,m,mr=0,mc=0):
+    if mr:k='00RSB06%DW'
+    else:k='00WSB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not mr else mr*mc # 처리할 데이터 갯수
+    k+=[ord(str(abs(i))) for i in [pt,r,c]]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not mr:
+        for i in m:
+            if i<0:i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.05)
+    k=ser.read(ser.inWaiting())
+    if mr:#읽기 일 때
+        for i in range(0,mr*mc*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):v-=2**16 
+            m.append(v)        
+
+set_tcp('전기그리퍼'); set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj(125); set_accj(250)
+begin_blend(50)
+ml,mj,mjx,aml,amj = movel,movej,movejx,amovel,amovej
+rml = lambda h,t = None:ml([0,0,h,0,0,0],mod=1,time=t)
+def arml(h,t=0.1):
+    aml([0,0,h,0,0,0],mod=1)
+    wait(t)
+H = [150,80]
+up = lambda pos,h=None:trans(pos,[0,0,(h if h else H)[isgrip],0,0,0])
+
+isgrip = False
+def grip(n,ad=-1,val=-1,t=None):
+    global isgrip
+    if n == isgrip:
+        return -1
+    isgrip = 0 if n == -1 else 1
+    if n == -1:
+        wait(0.1)
+    set_tool_digital_outputs([1*n,2*-n])
+    wait(t if t else (0.35 if n == 1 else  0.25))
+    if -1 not in [ad,val]:
+        ad = str(ad)
+        ad = '0'*(3 - len(ad)) + ad
+        a,b,c = map(int,str(ad))
+        ts(a,b,c,[val])
+        
+pos0 = [posx(139.75, 321.05, 8.03, 0, 180, 0)] * 81
+for i in range(1,81):
+    if i % 9:
+        pos0[i] = trans(pos0[i-1],[-40,0,0,0,0,0])
+    else:
+        pos0[i] = trans(pos0[i-9],[0,40,0,0,0,0])        
+
+def posing(pos,y,x):
+    s = y * x
+    pos = [pos] * s
+    for i in range(1,s):
+        if i % x:
+            pos[i] = trans(pos[i-1],[0,24,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[-35,0,0,0,0,0])
+    return pos
+
+pos1 = posing(posx(381.21, 320.21, 9.18, 0, 180, 0),5,8)
+pos2 = posing(posx(-240.77, 321.72, 8.01, 0, 180, 0),5,8)
+
+def ms(pos,i,n,ad=-1,val=1):
+    mjx(up(pos[i]),sol=2)
+    ml(pos[i])
+    grip(n,ad,val)
+    arml(100)
+
+doll = [None,0,0]
+def get_doll(n):
+    i = doll[n]
+    ms(pos1 if n == 1 else pos2,i,1)
+    doll[n] += 1    
+def give_doll(n):
+    i = doll[n]
+    ms(pos1 if n == 1 else pos2,i,-1)
+    doll[n] += 1
+
+def reading_m():
+    m = []
+    ts(0,0,0,m,9,5)
+    ts(0,4,5,m,9,4)
+    return m
+    
+def main():    
+    m = [0]*81
+    turn = 0
+    while 1:
+        if turn % 2:
+            bk = False
+            while not bk:
+                read_m = reading_m()
+                if m == read_m:
+                    continue
+                for i in range(81):
+                    if m[i] != read_m[i]:
+                        pos = i
+                        bk = True
+            get_doll(1)
+            ms(pos0,pos,-1)
+            m[pos] = 1
+        else:
+            pos = put_doll(m)
+            get_doll(2)
+            ms(pos0,pos,-1,pos,2)
+            m[pos] = 2
+        turn  += 1
+        bot.get_score(reading_m())
+    
+def reset():
+    for i in range(9):
+        for j in range(10):
+            if [i+j] == [8,2]:
+                return -1
+            n = []
+            ts(0,i,j,n,1,1)
+            doll = n[0]
+            if doll:
+                pos = int(str(i)+str(j))
+                ms(pos0,pos,1,pos,0)
+                give_doll(doll)          
+                
+def Run(n):
+    if n:
+        main() 
+    else:
+        reset()
+                
+grip(-1); arml(100)
+mj([90,0]*3,90,90)
+Run(1)
+
+serial_close(ser)

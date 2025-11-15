@@ -1,0 +1,340 @@
+# 0. Algorithm
+def exc(m,s,e):
+    if t == 0:
+        m,gli,g = m
+        m,gli = map(list,[m,gli])
+        pack = m[s] if g else e 
+        m[s] = '0' if g else e 
+        n = gli.index('0' if g else pack)
+        gli[n] = pack if g else '0'
+        info = [s,int(pack),g,n]
+        ct = gli.count('0')
+        g = 0 if (ct == 0 and g) else 1 if (ct == 2 and not g) else g
+        m = (''.join(m),''.join(gli),g)
+    else:
+        istp = type(m) == tuple
+        if t == 2 and istp:
+            m,ct = m
+            ct -= 1
+        m = list(m)
+        m[s],m[e] = m[e],m[s]
+        info = [[e,s],int(m[s])]       
+        if t == 2:
+            if m[s] != '1':
+                info.append(int(m[e]))
+            if istp:
+                info.append(ct)
+        m = ''.join(m)
+        if t == 2 and istp:
+            m = (m,ct)
+    return [m,info]
+
+def aro(pos):
+    res = []
+    if t == 1:
+        dx = [-4,-3,-2,-1,1,2,3,4]
+        res += [i for i in [pos + i for i in dx] if -1 < i < 9]
+    if t == 3:
+        res += [[1],[0,2,3],[1,4],[1,4],[2,3,5,6],[4,7],[4,7],[5,6,8],[7]][pos]
+    return res
+
+def exp(n,m,pos=-1):
+    res = []
+    if t == 0:
+        m,gli,g = m
+    if t == 2:
+        m,ct = m
+        y,x = divmod(m.index('1'),3)
+        li1 = [i for i in range(9) if m[i] == '0']
+        li2 = [i for i in range(9) if m[i] not in '01' and i not in fix and (i // 3 == y or i % 3 == x)]
+        if len(li2) == 2:
+            m1 = m[:]
+            step = []
+            pack = []
+            for i,j in zip(li1,li2):
+                m1,info = exc(m1,i,j)
+                step.append(info[0]), pack.append(info[1])
+            info = step + pack
+            line = sorted(li2 + [m1.index('1')])
+            res.append([(m1,3),info + [line] + [3]])
+        if ct == 0:
+           return res 
+    for i in range(9) if n > 0 else [pos]:
+        if i in fix:
+            continue
+        if t == 0:
+            b1 = not g and (m[i] != '0' or (i > 2 and m[i - 3] in '01'))
+            b2 = g and (m[i] == '0' or (i < 6 and m[i + 3] != '0'))
+            if b1 or b2:
+                continue
+            if g:
+                res.append(exc((m,gli,g), i, -1))
+            else:
+                for pack in gli:
+                    res.append(exc((m,gli,g), i, pack))
+            continue            
+        if n > 0 and m[i] != '0' and t != 2:
+            continue        
+        li = [None, aro(i), range(9), aro(i)][t]
+        for j in [j for j in li if (n < 1 or m[j] != '0') and j not in fix]:
+            if t == 1:
+                pack = m[j]
+                b1 = pack != '1' and i - j in [-4,4]
+                b2 = False
+                if pack == '1':
+                    a,b = sorted([i,j])
+                    li = m[a + 1 : b]
+                    b2 = not li or any([k not in '246' for k in li])
+                if b1 or b2:
+                    continue
+            if t == 2:
+                li1 = [m[i],m[j]]
+                if i == j or ('1' in li1 and '0' not in li1) or ('0' in li1 and '1' not in li1):
+                    continue
+            res.append(exc((m,ct),i,j) if t == 2 else exc(m,i,j) if n > 0 else [j,j])
+    return res
+
+def bfs(n,m,*a):
+    global res
+    if n == 0:
+        s,e = a
+    if n == 1:
+        leaf,pos,pack = a
+    if n == 2:
+        li, = a
+    cur = m if n > 0 else s
+    que = deque([cur])
+    mkd,step = {cur:-1},{cur:-1}
+    while 1:
+        cur = que.popleft()
+        if n == 0 and cur == e:
+            break
+        if n == 1:
+            cur1 = cur[0] if t in [0,2] else cur
+            if (pos == -1 and cur1 == leaf) or \
+               (pos != -1 and cur1[pos] == pack):
+                break
+        if n == 2 and all([i in '246' for i in [cur[i] for i in li]]):
+            break
+        for i,j in exp(n,cur if n > 0 else m,cur):
+            if i not in mkd:
+                que.append(i)
+                mkd[i],step[i] = cur,j
+    mkd[-2] = cur
+    path = [step[cur]]
+    while mkd[cur] != -1:
+        cur = mkd[cur]
+        path.append(step[cur])
+    if n > 0:
+        res += path[::-1][1:]
+        return mkd[-2]
+    return path[::-1][1:]
+
+def main(g_t,m,*a):    
+    global t,fix,res
+    t = g_t
+    fix = []
+    res = []
+    if t == 0:
+        leaf, = a
+        m = (m,('0','0'),1)
+        for i in range(3):
+            if leaf[i] not in '01':
+                m = bfs(1,m,leaf,i,leaf[i])
+                fix.append(i)
+        bfs(1,m,leaf,-1,-1)
+    if t == 1:
+        leaf, = a
+        cur = m.index('1')
+        end = leaf.index('1')
+        while cur != end:            
+            fix.append(cur)
+            n = abs(cur - end)
+            e = (cur + 4 if cur < end else cur - 4) if n > 4 else end
+            road = list(range(cur,e,1 if cur < e else -1))[1:]
+            if n != 1:
+                m = bfs(1,m,leaf,e,'0')
+                fix.append(e)
+                m = bfs(2,m,road)
+            fix = []            
+            m = bfs(1,m,leaf,e,'1')
+            cur = e
+        fix.append(end)
+        for i in [0,1,2] if m.index('1') > 4 else [8,7,6]:
+            if leaf[i] != '0':
+                m = bfs(1,m,leaf,i,leaf[i])
+                fix.append(i)
+        bfs(1,m,leaf,-1,-1)
+    if t == 2:
+        leaf,ct = a
+        m = (m,ct)
+        pos = leaf.index('1')
+        y,x = divmod(pos, 3)
+        li = [i for i in range(9) if i // 3 == y or i % 3 == x]
+        m = bfs(1,m,leaf,pos,'1')       # 1부터 정렬
+        fix.append(pos)
+        for i in range(9):
+            if i not in li:
+                m = bfs(1,m,leaf,i,leaf[i])
+                fix.append(i)
+        bfs(1,m,leaf,-1,-1)
+    if t == 3:
+        leaf = '123456700'
+        for e in range(7):
+            pack = leaf[e]
+            s = m.index(pack)
+            road = bfs(0,m,s,e)
+            for j in road:
+                m = bfs(1,m,leaf,j,pack)
+            fix.append(e)
+    return res
+
+# 1. header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(400)
+begin_blend(10)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos,sol=-1):
+    movejx(pos,sol= sol if sol != -1 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,acc=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [400,400,400,400][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+
+# 2. device communication
+ser=serial_open("COM")
+def ts(ad,m=[],y=0,x=0,b=True):
+    if b:
+        ad += 100 * (1 + T)
+    k='00'+['W','R'][bool(y)]+'SB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not y else y*x
+    ad = [0]*(3-len(str(ad))) + list(map(int,str(ad)))
+    k+=[ord(str(abs(i))) for i in ad]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not y:
+        for i in m:
+            if i<0:
+                i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.02 if n is 1 else 0.05)
+    k=ser.read(ser.inWaiting())
+    if y:
+        for i in range(0,y*x*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):
+                v-=2**16 
+            m.append(v)
+        return m if len(m) > 1 else m[0]
+def write(*a,b = True):
+    if isinstance(a[0],int):
+        a = [a]
+    for i,j in a:
+        ts(i,j if isinstance(j,list) else [j],b=b)
+def read(ad,y=1,x=1):
+    return ts(ad,[],y,x)
+
+# - writing init        temp
+def wt_init():
+    pass
+wt_init()       # temp
+    
+# - reading init
+root = [-1] * 4
+leaf = [-1] * 4
+info = [-1] * 4
+
+# - converting init
+def con(m):
+    pass
+pass
+
+# - get positions
+def ps(pos,y,x,sy=40,sx=40):
+    s = y * x 
+    pos = [pos] * s
+    for i in range(1,s):
+        if i % x:
+            pos[i] = trans(pos[i-1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+elcA = None
+elcB = None
+elcC = None
+elcD = None
+airA = None
+airB = None
+airC = None
+poss = [[elcA,elcB,elcC,elcD],[airA,airB,airC,None]]
+
+# - motions
+def mt(p,g,d=[],mod=0,h=-1,z=0,b1=True,b2=False,a1=1000,a2=500):
+    tp = tr(pos[p],[0,0,-z,0,0,0])    
+    ml(up(tp,mod,h),a=a1)
+    if b2:
+        return -1
+    ml(tp,a=a2,r = 5)
+    if not g:
+        rml(z=-0.15,acc = 300)
+    grip(g)
+    if d:
+        ad,val = d
+        write(ad,val)
+    if b1:
+        ml(up(tp))
+
+# 3. Main
+def Run():
+    pass
+
+write(30,1,b=False)
+
+# - Calcurating
+ress = [None,None,None] 		# temp
+ress = []
+for i in range(3):
+    if info[i] != -1:
+        ress.append(main(i,root[i],leaf[i],info[i]))
+    else:
+        ress.append(main(i,root[i],leaf[i]))
+        
+for i in range(3):
+    grip(0)
+    if not i:
+        mj([90,0,90,90,90,0])
+        tool = 0
+    T,pos,res = i,poss[tool][i],ress[i]
+    Run()
+    
+write(30,1,b=False)
+

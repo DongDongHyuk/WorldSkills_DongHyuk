@@ -1,0 +1,2 @@
+start = time.time()  # 시작 시간 저장
+tp_log("all complete !!! {}sec".format(round(time.time() - start,4)))

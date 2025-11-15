@@ -1,0 +1,57 @@
+# 1. 헤더
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(500); set_accx(1000)
+set_velj([100,150,180,225,225,225]); set_accj(350)
+begin_blend(19)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos):
+    movejx(pos,sol=2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1):
+    amj([x,y,z,a,b,c],mod=1)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [300,300,300][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=1.2):
+    global tool,pos
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.2)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+        
+
+#poss = [
+#[ps(posx(208.86, 319.48, 224.37, 0.1, -90, -90.02),2,8,100),
+#ps(posx(-246, 322.23-100, 223.56, 0.1, -90.01, -90.02),5,5),
+#ps(posx(446.4, 226.97, 224.52, 0.1, 90, 90.02),4,4)],
+#[ps(posx(207.63, 318.38, 199.44-0.5, 0.1, -90.01, 89.99),2,8,100),
+#ps(posx(-247.08, 321.39-100, 198.52, 0.1, -90.01, 89.98),5,5),
+#ps(posx(446.95, 228.34, 198, 0.1, 89.99, -89.98),4,4)]]
+#
+'''
+A posx(208.81, 323.18, 223.76, 0.08, -90, -89.99)
+B posx(-246.54, 326.42-100, 223.56, 0.63, -90, -90)
+C posx(446.32, 224.1, 224.1, 0.1, 90, 90.03)
+A posx(207.94, 322.38, 139.4+60, 0.11, -90, 89.97)
+B posx(-246.97, 324.88-100, 138.66+60, 0.1, -90.01, 89.99)
+C posx(447.39, 225.75, 138.53+60, 0.09, 89.99, -89.98)
+'''

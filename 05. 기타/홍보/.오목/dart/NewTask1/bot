@@ -1,0 +1,60 @@
+from DRCF import *
+from functools import lru_cache
+import random 
+
+drl_report_line(OFF)
+
+@lru_cache(maxsize=None)
+def around(pos,dxy=None):
+    res = []
+    sy,sx = 9,9
+    dy = [-1,-1,0,1,1,1,0,-1]
+    dx = [0,1,1,1,0,-1,-1,-1]
+    y,x = divmod(pos,sx)
+    for i in range(8) if dxy is None else [dxy]:
+        ny,nx = y + dy[i],x + dx[i]
+        npos = ny * sx + nx
+        if -1 < ny < sy and -1 < nx < sx:
+            res.append([npos,i])
+    return res
+    
+def get_score(m):
+    s2p = {}
+    li = list(range(81))
+    random.shuffle(li)
+    for pos in li:
+        if m[pos] != 0:
+            continue
+        score = 0
+        for npos,i in around(pos):
+            doll = m[npos]
+            if doll != 0:
+                ct = 0
+                while m[npos] == doll:
+                    ct += 1 
+                    npos = around(npos,i) # npos = npos 에서 i방향으로 진행한 위치
+                    if npos:
+                        npos = npos[0][0]
+                    else: # 만약에 진행할 수 없으면 break
+                        break
+                if ct >= 3: # 3 개 이상 연속이면
+                    score = -ct
+                else: # 3 개 보다 적으면
+                    score += ct
+                if ct == 5: # 연속 5개일때
+                    tp_log('you win' if doll == 1 else 'bot win')
+                    exit()
+            if score:
+                s2p[score] = pos
+    return s2p
+
+def put_doll(m):
+    s2p = get_score(m)
+    if not s2p:
+        return 40
+    if all([i > 0 for i in s2p]):
+        n = max(s2p)
+    else:
+        n = min(s2p)
+    return s2p[n]
+

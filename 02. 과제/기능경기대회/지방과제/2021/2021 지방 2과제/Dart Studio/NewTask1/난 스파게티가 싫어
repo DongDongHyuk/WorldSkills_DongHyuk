@@ -1,0 +1,471 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+    
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+    serial_close(ser)
+    
+speed = 400; pointA_Y = 307.36; C = 88.3
+set_velx(speed), set_accx(speed)
+#==============( 좌 표 )===============
+index_pos = [posx(378.5, 151.17, 140, 0, -180 , C),posx(378.5, 151.17, 82, 0, -180 , C)] # 인덱스 좌표
+pointA_1 = [posx(187.5, pointA_Y, 70, 0, -180, C),posx(187.5, pointA_Y, 25, 0, -180, C),
+posx(187.5, pointA_Y, 5, 0, -180, C),posx(187.5, pointA_Y, -15, 0, -180, C)] # A 구역 좌표
+pointC_1 = [posx(-148.05, 310.55, 70, 0, -180, C),posx(-148.05, 310.55, 25, 0, -180, C),
+posx(-148.05, 310.55, 5, 0, -180, C),posx(-148.05, 310.55, -15, 0, -180, C)] # C 구역 좌표
+pointA_2 = [0]*4; pointC_2 = [0] * 4
+for i in range(4): # A_2 ~ C_2
+    pointA_2[i] = trans(pointA_1[i],[0,56.6,0,0,0,0])
+    pointC_2[i] = trans(pointC_1[i], [1,56,0,0,0,0])
+check_pos = [[-53,0,0,0,0,0],[-43,0,0,0,0,0],[-33,0,0,0,0,0]] # A 구역 팩 구분 좌표
+grip_pos = [[-40,0,0,0,0,0],[-30,0,0,0,0,0],[-20,0,0,0,0,0]] # A 구역 팩 잡기 좌표
+pointD = [posx(-329.5, 42.01, 15.46, 0, 180, 90)] * 9
+for i in range(1,9):
+    if i % 3 != 0:
+        pointD[i] = trans(pointD[i-1],[-40,0,0,0,0,0],0,0)
+    else:
+        pointD[i] = trans(pointD[i-3],[0,37.5,0,0,0,0],0,0)
+#==========(패턴 만들때 필요한 좌표)===============
+waypoint = [posx(0, 307.36, 100, 0, -180, C),posx(0, 307.36+56.6, 100, 0, -180, C)] # 경유지 좌표 (A to C)
+gantry_pos = [posx(101.91, 506.35, 4.8, 0, -180, C),posx(-57.75, 506.35, 4.8, 0, -180, C)] # 겐트리 좌표 (팩있을때 +20)
+#=============( 변 수 )==============
+indexT = [0] * 8; now_pack_pattern = [0] * 3; pointA_save = [0] * 3; pointA_save_2 = [0] * 3; pointA_save_1 = [0] * 3 # list
+pack = pattern = pos_count = dont_down = 0 # int 
+global now_pack_pattern, pointA_save, pointA_save_1, pointA_save_2 # global
+pointA_save_turn = [pointA_save_1,pointA_save_2] # list
+#==================================
+# griper
+def grip(a,mode = 0, b = 0): 
+    set_tool_digital_outputs([1*a,-2*a]) # -1: grip off ! , 1: grip
+    if b == 0: 
+        wait(0.1)
+    if mode == 1: movel([0,0,3,0,0,0], mod = 1)
+    if mode == 2: movel([0,0,20,0,0,0], mod = 1)
+    if mode == 3: movel([0,0,40,0,0,0], mod = 1)
+ 
+ # 인덱스 확인 
+def index_check():
+    begin_blend(4)
+    dont_down = stop_ = count = 0
+    for i in range(8):
+        a = 0; count +=1 
+        if i > 0: 
+            write(30,1)
+            if dont_down == 0: 
+                movel(index_pos[1])
+            dont_down = 0
+            if i > 0: 
+                if indexT[i-1] == 0: wait(0.47)
+                if indexT[i-1] == 1: wait(0.42)
+                if indexT[i-1] == 2: wait(0.32)
+                if indexT[i-1] == 3: wait(0.3)
+        for l in range(3):
+            grip(1,0,1) # grip ! 
+            wait(0.21)
+            if get_tool_digital_input(1) == 1:
+                indexT[i] = l
+                if l == 0: dont_down = 1
+                grip(-1,0,1); break
+            else: indexT[i] = 3; grip(-1,0,1)
+            if l <= 1:movel([0,0,10,0,0,0], mod = 1)
+        if i > 6: write(30,1)
+        for x in range(8):
+            if indexT[x] != 0: 
+                a += 1
+                if a == 6: 
+                    stop_ = 1
+        if stop_ == 1: break
+    write(30,(9-count))
+    movel(index_pos[0])
+    end_blend()
+  
+# A 구역 팩 저장( 상단 과 중단의 팩 정보를 받으면 하단을 계산해줌 )
+def save_A(a,b,C = [1,2,3]):
+    pointA_save[a] = b
+    if pointA_save[0] != 0 and pointA_save[1] != 0:
+        for i in range(3):
+            if C[i] not in pointA_save:
+                pointA_save[2] = C[i]
+
+# 상단에 중간팩일때 중단에 작은 팩인가 큰팩인가 
+def if_middle_pack(a):
+    global middle_pack, pattern, now_pattern, pointA_save # global 
+    movel(trans(now_turn_A[1],check_pos[0])) # 중단 팩 확인하는
+    movel(trans(now_turn_A[2],check_pos[0])) # 무빙입니다.
+    grip(1)
+    wait(0.23)
+    if get_tool_digital_input(1) == 1: # 2 층에서 안잡히면 [2,1,3]
+        now_pattern = [2,1,3]
+        pattern = 1
+    if get_tool_digital_input(1) == 0: #     "       잡히면 [2,3,1]
+        now_pattern = [2,3,1]
+        pattern = 2
+    grip(-1)
+    pointA_save = now_pattern[:] # 지금 패턴을 저장
+    movel(trans(now_turn_A[1],check_pos[0])) # 상단에 중간 팩을 잡으러 가는 
+    movel(now_turn_A[1]) # 무빙 입니다. 
+    grip(1)
+
+# 겐트리 무빙 
+def gantry(pack):    
+    global pos_count
+    if pack == 2:
+        write(102,1)
+        pos_count = 1
+    else:
+        write(101,1) 
+        pos_count = -1
+            
+# b : 층 
+def simple_check(b): 
+    for i in range(2):
+        movel(trans(now_turn_A[b],check_pos[i]))
+        grip(1)
+        wait(0.21)
+        if get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0:
+            grip(-1)
+            return 3 - i
+            break
+        if get_tool_digital_input(1) == 1 and i == 1:
+            grip(-1)
+            return 1
+            break  
+        grip(-1)
+        
+def way_back_home():
+    movel([0,0,20,0,0,0], mod = 1)
+    movec(posx(182.39, 357.4, 99.59, 0, -180 , C),now_turn_A[1])
+     
+# 반복적이면서 굴욕적이고 처참하지도 못해 섹시한 무빙들
+def in_out_gantry(a = 0 ,b = 0 ,c = 0, A = 0, B = 0, C = 0):
+    begin_blend(9)
+    add_y = (lambda a: 0 if a == 0 else 60)(turn)
+    # ============( I N )==============
+    if a == 1 and c == 2: # A 구역에서 C 구역 
+        movec(waypoint[turn],now_turn_C[4-C])
+    if c == 1 and a == 2: # C 구역에서 A 구역
+        movec(waypoint[turn],now_turn_A[4-A])
+    if a == 1 and b == 2: # A 구역에서 겐트리 
+        if pos_count > 0: # 여기서 gantry pos 란? 겐트리가 중앙선 기준 오른쪽이면 +1 , 왼쪽이면 -1 이다. 그렇다.
+            movec(posx(106.54, 393.51+add_y,100,  0, 180, C), trans(gantry_pos[1],[0,0,(lambda a: 19.8 if a == 2 else 39.8 if a == 3 else 0)(B),0,0,0]))
+        else:
+            movec(posx(173, 393.51+add_y, 100,  0, 180, C), trans(gantry_pos[0],[0,0,(lambda a: 19.8 if a == 2 else 39.8 if a == 3 else 0)(B),0,0,0]))
+    if c == 1 and b == 2: # C 구역에서 겐트리 
+        if pos_count > 0:
+            movec(posx(-112,393.51+add_y, 100, 0, 180, C), trans(gantry_pos[1],[0,0,(lambda a: 19.8 if a == 2 else 39.8 if a == 3 else 0)(B),0,0,0]))
+        else:
+            movec(posx(-79, 393.51+add_y, 100, 0, 180, C), trans(gantry_pos[0],[0,0,(lambda a: 19.8 if a == 2 else 39.8 if a == 3 else 0)(B),0,0,0]))    
+    # ============( O U T )==============
+    if b == 1 and a == 2: # 겐트리에서 A 구역
+        movel([0,0,20,0,0,0], mod = 1)
+        if pos_count > 0:
+            movec(posx(106.54, 393.51+add_y, 100, 0, 180, C),now_turn_A[4-A])
+        else:
+            movec(posx(173, 393.51+add_y, 100,  0, 180, C),now_turn_A[4-A])
+    if b == 1 and c == 2: # 겐트리에서 C 구역 
+            if pos_count > 0:
+                movec(posx(-112, 393.51+add_y, 100, 0, 180, C),now_turn_C[4-C])
+            else:
+                movec(posx(-79, 393.51+add_y, 100, 0, 180, C),now_turn_C[4-C])    
+    end_blend()
+   
+# 인덱스 돌리기 
+def spin_index(a):
+    left = indexT[0]
+    global left,indexT
+    for i in range(8):
+        if indexT[i] == a:
+            write(30,i) # 인덱스 회전            
+            indexT[i] = 0 # 팩 지우기 
+            for _ in range(i): # 리스트 밀기 
+                left = indexT[0]
+                for i in range(8):
+                    if i < 7:
+                        indexT[i] = indexT[i+1]
+                indexT[7] = left            
+            break
+            
+# a = 1 ~ 3 공사중
+def record(a,b):
+    global pointA_save, pointA_save_1, pointA_save_2
+    if b == 0: pointA_save = pointA_save_1[:]
+    if b == 1: pointA_save = pointA_save_2[:]
+    tp_log("{}/{}/{}".format(pointA_save[0],pointA_save[1],pointA_save[2]))
+    begin_blend(d2r(get_distance(posx(0, 349.69, 200,  0, 180, C),posx(378.5, 151.17, 140, 0, -180 , C))/2-1))
+    if a == 1: movel([0,0,50,0,0,0], mod = 1)
+    else: movel(posx(0, 270, 250,  0, 180, C))
+    movel(index_pos[0])
+    movel(index_pos[1])
+    grip(1) # grip 
+    gantry(pointA_save[(lambda a:2 if a == 1 else 1 if a == 2 else 0 )(a)]) # 겐트리
+    movel(trans(index_pos[0],[0,0,30,0,0,0])) # 매우 위로 
+    if a < 3: spin_index(pointA_save[(lambda a:1 if a == 1 else 0)(a)])# 미리 돌리기
+    movel(posx(0, 270, 250,  0, 180, C)) # 중앙을 지나 
+    #movel(posx(-368.09, 79.7, 170, 0, 180, C)) # D 구역
+    if b == 0: movel(pointD[(lambda a: 6 if a == 1 else 3 if a == 2 else 0)(a)]) # move    
+    if b == 1: movel(pointD[(lambda a: 8 if a == 1 else 5 if a == 2 else 2)(a)]) # move    
+    grip(-1) # grip off
+    if b == 0: write((lambda a: 5 if a == 1 else 3 if a == 2 else 1)(a),pointA_save[3-a]) # HMI
+    if b == 1: write((lambda a: 6 if a == 1 else 4 if a == 2 else 2 )(a),pointA_save[3-a]) # HMI
+    movel([0,0,50,0,0,0], mod = 1)
+    if a < 3: record(a+1,b)
+    end_blend()
+  
+def hmi(a):
+    if turn == 0: return 14 - a 
+    else:  return 17 - a
+    
+def down(a):
+    movel([0,0,-a,0,0,0], mod = 1)   
+    
+def up(a):
+    movel([0,0,a,0,0,0], mod = 1)
+    
+def buzz(a):
+    if a == 1: write(105,1)
+    if a == 2: write(105,2)
+    if a == 3:
+        write(105,2)
+        wait(0.33)
+        write(105,2)
+        
+def save():
+    if turn == 0: 
+        pointA_save_1 = pointA_save[:]
+        tp_log("{}/{}/{}".format(pointA_save_1[0],pointA_save_1[1],pointA_save_1[2]))
+    else: 
+        pointA_save_2 = pointA_save[:]
+        tp_log("{}/{}/{}".format(pointA_save_2[0],pointA_save_2[1],pointA_save_2[2]))
+
+def move_pattern_1(a = 0):
+    tp_log("패턴 1 실행 !")
+    #(A 구역 상단 팩)
+    in_out_gantry(1,2,0,0,1,0)
+    grip(-1,2)
+    buzz(2)
+    
+    #(A 구역 중단 팩)
+    in_out_gantry(2,1,0,3,0,0)
+    if pointA_save == [2,1,3]: # 만약에 지금 팩의 패턴을 안다면
+        if turn == 0: spin_index(pointA_save[2])
+        down(20)
+        grip(1,2)
+        gantry(pointA_save[1]) # 겐트리 움직이기
+    else:
+        save_A(1,simple_check(2)) # 팩 패턴을 읽고 저장
+        movel(now_turn_A[2])
+        grip(1,2)
+        gantry(pointA_save[1]) # 겐트리 움직이
+    if turn == 0: spin_index(pointA_save[2])
+    if pointA_save[2] != 2: wait(0.76)# 겐트리를 기다려 보아요
+    in_out_gantry(1,2,0,0,2,0)
+    grip(-1,2)
+    buzz(2)
+    
+    #(A 구역 하단 팩)
+    in_out_gantry(2,1,0,2,0,0)
+    down(20)
+    grip(1)
+    gantry(pointA_save[2])
+    up(40)
+    in_out_gantry(1,0,2,0,0,1)
+    grip(-1,2)
+    buzz(3)
+    write(13+(lambda a:3 if a == 1 else 0)(turn),pointA_save[2])
+    
+    #(겐트리 중단 팩)
+    in_out_gantry(0,2,1,0,3,0)
+    down(20)
+    grip(1,1)
+    gantry(pointA_save[1])
+    in_out_gantry(0,1,2,0,0,2)
+    grip(-1, 2)
+    buzz(3)
+    write(12+(lambda a:3 if a == 1 else 0)(turn),pointA_save[1])
+    
+    #(겐트리 상단 팩)
+    in_out_gantry(0,2,1,0,2,0)
+    down(20)
+    grip(1,1)
+    gantry(pointA_save[0])
+    in_out_gantry(0,1,2,0,0,3)
+    grip(-1, 2)
+    buzz(3)
+    write(11+(lambda a:3 if a == 1 else 0)(turn),pointA_save[0])
+    
+    #save
+    save()
+    
+def move_pattern_2():
+    tp_log("패턴 2 실행 !")
+    #(A 구역 상단 팩)
+    in_out_gantry(1,0,2,0,0,1)
+    grip(-1,2)
+    buzz(2)
+    write(13+(lambda a:3 if a == 1 else 0)(turn),pointA_save[0])
+    
+    #(A 구역 중단 팩)
+    in_out_gantry(2,0,1,3,0,0)
+    if pointA_save == [2,3,1]: # 만약에 지금 팩의 패턴을 안다면
+        down(20)
+        grip(1,2)
+    else:
+        save_A(1,simple_check(2))
+        movel(now_turn_A[2])
+        grip(1,2)
+    gantry(pointA_save[1])
+    if turn == 0: spin_index(pointA_save[2]) # 인덱스 미리 돌리기
+    if pointA_save[2] != 2: wait(0.76)# 겐트리를 기다려 보아요
+    in_out_gantry(1,2,0,0,1,0)
+    grip(-1,2)
+    buzz(2)
+    
+    #(C 구역 하단 팩)
+    in_out_gantry(0,1,2,0,0,2)
+    down(20)
+    grip(1)
+    gantry(pointA_save[0])
+    write(16,0)
+    if pointA_save[2] != 2: wait(0.76)# 겐트리를 기다려 보아요
+    in_out_gantry(0,2,1,0,3,0)
+    down(20)
+    grip(-1,2)
+    write(13+(lambda a:3 if a == 1 else 0)(turn),0)
+    buzz(2)
+    
+    #(A 구역 하단 팩)
+    in_out_gantry(2,1,0,2,0,0)
+    down(20)
+    grip(1)
+    gantry(pointA_save[2])
+    in_out_gantry(1,0,2,0,0,1)
+    grip(-1,2)
+    write(13+(lambda a:3 if a == 1 else 0)(turn),pointA_save[2])
+    buzz(3)
+    
+    #(겐트리 중단 팩)
+    in_out_gantry(0,2,1,0,3,0)
+    down(20)
+    grip(1,1)
+    gantry(pointA_save[0])
+    in_out_gantry(2,1,0,1,0,0)
+    grip(-1,3)
+    buzz(2)
+    
+    #(겐트리 하단 팩)
+    in_out_gantry(1,2,0,0,2,0)
+    down(20)
+    grip(1,3)
+    gantry(pointA_save[1])
+    in_out_gantry(0,1,2,0,0,2)
+    grip(-1, 2)
+    buzz(3)
+    write(12+(lambda a:3 if a == 1 else 0)(turn),pointA_save[1])
+    
+    #(A 구역 하단 팩)
+    in_out_gantry(2,0,1,1,0,0)
+    grip(1)
+    gantry(pointA_save[0])
+    in_out_gantry(1,0,2,0,0,3)
+    grip(-1,2)
+    buzz(3)
+    write(11+(lambda a:3 if a == 1 else 0)(turn),pointA_save[0])
+    
+    #save
+    save()
+    
+# a = 0: pointA_1,pointC_2 / a = 1: pointA_2,pointC_2 / b: 층 ex) 3, 2, 1        
+def pointA_check(a,b):
+    begin_blend(4)
+    now_turn_A = (lambda a:pointA_1 if a == 0 else pointA_2)(a)
+    now_turn_C = (lambda a:pointC_1 if a == 0 else pointC_2)(a)
+    global pack, now_turn_A,now_turn_C
+    if b == 3:
+        grip(-1)
+        movel(trans(trans(now_turn_A[0],check_pos[0]),[0,0,30,0,0,0]))
+    for i in range(2):
+        movel(trans(now_turn_A[4-b],check_pos[i]))
+        grip(1)
+        wait(0.21)
+        if get_tool_digital_input(1) == 0 and get_tool_digital_input(2) == 0:
+            pack = 3 - i
+            grip(-1)
+            break
+        if get_tool_digital_input(1) == 1 and i == 1:
+            pack = 1
+            grip(-1)
+            break  
+        grip(-1)
+    if pack != 2: 
+        movel(now_turn_A[1])
+        grip(1)
+    #=======(겐트리 무빙)=======
+    gantry(pack)
+    end_blend()
+    
+# 패턴 골라줌 1 or 2
+def pointC_move(pack,other = 0): 
+    pointA_save = [0] * 3
+    if pack == 3 or other == 1:
+        move_pattern_1()
+    if pack == 1 or other == 2:
+        move_pattern_2()
+
+def test(a = 0):
+    write(103,1) # 겐트리 초기화
+    write(104,1) # HMI 초기화
+    grip(-1) # grip off
+    break_ = 0
+    while break_ != 1:
+        if read(100) == 1:
+            buzz(1)
+            index_check() # 인덱스 테이블 팩 확인
+            for i in range(2): # turn
+                turn = i; global turn
+                pointA_check(i,3) # A 구역 확인 turn, floor(3층 고정
+                if pack == 2:
+                    save_A(0,2) # A 구역 상단 팩 저장 
+                    if_middle_pack(i) # 상단에 중간 팩 일때
+                    pointC_move(0,pattern) # pattern linker
+                else: # 1 or 3:
+                    save_A(0,pack) # A 구역 상단 팩 저장
+                    pointC_move(pack) # pattern linker
+                up(50)
+            for l in range(2):
+                record(1,l)
+                if l == 0: spin_index[pointA_save_2[2]]
+            break_ = 1
+            
+grip(-1)
+movej([90,0,90,0,90,90], 50,50)
+movel(index_pos[0]) # 인덱스 위로
+movel(index_pos[1]) # 인덱스 아래로
+test()

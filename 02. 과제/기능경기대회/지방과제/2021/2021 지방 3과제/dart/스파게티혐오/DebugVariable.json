@@ -1,0 +1,33 @@
+{
+  "Count": "5",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "pointA",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "six_pack",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "device",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "pack_l",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "timer_",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

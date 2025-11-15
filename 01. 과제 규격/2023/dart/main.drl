@@ -1,0 +1,175 @@
+'''
+0. algorithm
+1. header
+2. device communication
+ - reading init
+ - converting init
+ - positions
+ - motion
+3. main
+'''
+
+# 0. Algorithm
+pass
+
+# 1. header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(400)
+begin_blend(10)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos,sol=-1):
+    movejx(pos,sol= sol if sol != -1 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,acc=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [300,300,300][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+def it(n,t=0.5):        # 3과제 전용
+    write(10,n,b=False)
+    wt(t * abs(n))
+    return 0.5 * abs(n)
+gp = 4.5
+def gt(n,t=3):         # 3과제 전용
+    global gp
+    if n == gp:
+        return -1
+    write(20,n,b=False)
+    wt(t *  abs(gp - n))
+    n1 = 0.1 * abs(gp - n)
+    gp = n
+    return n1
+
+# 2. device communication
+ser=serial_open("COM")
+def ts(ad,m=[],y=0,x=0,b=True):
+    if b:
+        ad += 100 * (1 + T)
+    k='00'+['W','R'][bool(y)]+'SB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not y else y*x
+    ad = [0]*(3-len(str(ad))) + list(map(int,str(ad)))
+    k+=[ord(str(abs(i))) for i in ad]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not y:
+        for i in m:
+            if i<0:
+                i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.02 if n is 1 else 0.05)
+    k=ser.read(ser.inWaiting())
+    if y:
+        for i in range(0,y*x*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):
+                v-=2**16 
+            m.append(v)
+        return m if len(m) > 1 else m[0]
+def write(*a,b = True):
+    if isinstance(a[0],int):
+        a = [a]
+    for i,j in a:
+        ts(i,j if isinstance(j,list) else [j],b=b)
+def read(ad,y=1,x=1):
+    return ts(ad,[],y,x)
+
+# - writing init        temp
+def wt_init():
+    pass
+wt_init()       # temp
+    
+# - reading init
+root = [-1] * 3
+leaf = [-1] * 3
+init = [-1] * 3
+
+# - converting init
+def con(m):
+    pass
+pass
+
+# - get positions
+def ps(pos,y,x,sy=40,sx=40):
+    s = y * x 
+    pos = [pos] * s
+    for i in range(1,s):
+        if i % x:
+            pos[i] = trans(pos[i-1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = trans(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+poss = []
+
+# - motions
+def mt(p,g,d=[],mod=0,h=-1,z=0,b1=True,b2=False,a1=1000,a2=500):
+    tp = tr(pos[p],[0,0,-z,0,0,0])    
+    ml(up(tp,mod,h),a=a1)
+    if b2:
+        return -1
+    ml(tp,a=a2,r = 5)
+    if not g:
+        rml(z=-0.15,acc = 300)
+    grip(g)
+    if d:
+        ad,val = d
+        write(ad,val)
+    if b1:
+        ml(up(tp))
+
+# 3. Main
+def Run():
+    pass
+
+write(30,1,b=False)
+import time         # temp
+time_start = time.time()        # temp
+
+# - Calcurating
+ress = [None,None,None] 		# temp
+ress = []
+for i in range(3):
+    tl(i,root[i],leaf[i],info[i])        # temp
+    if info[i] != -1:
+        ress.append(main(i,root[i],leaf[i],info[i]))
+    else:
+        ress.append(main(i,root[i],leaf[i]))
+        
+for i in range(3):
+    grip(0)
+    if not i:
+        mj([90,0,90,90,90,0])
+        tool = 0
+    T,pos,res = i,poss[tool][i],ress[i]
+    Run()
+    
+write(30,1,b=False)
+time_end = time.time() - time_start         # temp
+minute,second = int(time_end // 60),int(time_end % 60)         # temp
+tl('{}m {}s\n'.format(minute,second))         # temp

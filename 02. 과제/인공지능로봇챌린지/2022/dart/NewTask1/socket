@@ -1,0 +1,8 @@
+from DRCF import *
+
+def open_server(value, port = 20001):
+    sock = server_socket_open(port)
+    server_socket_write(sock, str(value).encode('utf-8'))
+    result = eval(server_socket_read(sock,timeout = -1)[1].decode('utf-8'))
+    server_socket_close(sock)
+    return result

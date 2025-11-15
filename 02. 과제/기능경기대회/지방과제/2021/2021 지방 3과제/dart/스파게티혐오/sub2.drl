@@ -1,0 +1,4 @@
+while True:
+    begin_blend(5)
+    movel([0,0,-80,0,0,0],300,300,mod=1)
+    movel([0,0,80,0,0,0],300,300,mod=1)

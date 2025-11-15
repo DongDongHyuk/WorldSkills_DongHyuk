@@ -1,0 +1,43 @@
+from DRCF import *
+drl_report_line(OFF)
+printf = lambda *n: tp_log(' '.join(list(map(str,n))))
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+w[0],r[0] = [5] * 2
+w[-1],r[-1] = [4] * 2
+
+for i in [w,r]:
+    i[1:-1] = list(map(lambda a: ord(a),i[1:-1]))
+    
+def write(ad, val):
+    ser = serial_open(port = 'COM')
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+    
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[13] = ord(str(ad//100))
+    r[14] = ord(str((ad%100)//10))
+    r[15] = ord(str(ad%10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    n = int(ser.read(ser.inWaiting()).decode()[10:14],16)
+    serial_close(ser)
+    return n
+
+ad_val = [[0, 12], [1, 13], [2, 0], [3, 11], [4, 2], [5, 3], [6, 4], [7, 0], [8, 1], [9, 22], [10, 5], [11, 0], [12, 0], [13, 21], [14, 15], [15, 0], [16, 0], [17, 0], [18, 9], [19, 0],
+              [20, 0], [21, 14], [22, 19], [23, 22], [24, 18], [25, 8], [26, 17], [27, 21], [28, 7], [29, 6], [30, 16], [31, 0], [32, 0], [33, 0], [34, 9], [35, 13], [36, 0], [37, 5], [38, 18], [39, 4],
+              [40, 1], [41, 22], [42, 7], [43, 16], [44, 0], [45, 21], [46, 12], [47, 0], [48, 2], [49, 0], [50, 0], [51, 3], [52, 6], [53, 14], [54, 17], [55, 22], [56, 11], [57, 19], [58, 15], [59, 21],
+              [60, 0], [61, 0], [62, 0], [63, 8],[64,0],[65,0],[66,0],[67,11],[68,0],[69,0],[70,32],[71,0],[72,21]]
+
+def Hmi_write(ad_range):
+    for ad,val in ad_val:
+        if ad_range[0] <= ad < ad_range[1]:
+            write(ad,val)

@@ -1,0 +1,225 @@
+import time as t
+start = t.time()
+
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4                
+
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+    
+set_tool("Tool Wei"), set_tcp("전기그리퍼") ; begin_blend(4)
+#===========( 변 수 )===========
+movec_speed = 300; call = 0; C_posx = -346.91; A_pos = 4.5; Z_pos = 2.473  # int 
+pointA = [0] * 9; six_pack = []; device = [0,0,int(0),int(0),int(80),int(80)]; pack_l = [0] * 6 # list
+global pointA,speed,movec_speed,six_pack,pack_l,call,ohcha_len # global
+#===========( 좌 표 )=============
+pointA_pos = [posx(366.93, 149.58, 26.67,  0, -180, -90)] * 9 # A 구역 좌표
+pointA_up = [0] * 9 # A 구역 팩위 좌표
+pointA_pos_45 = [posx(321.48+40, 149.59, 29.47+20, 179.96, 140.98, 89.96)] * 9 # 기울어 있는 A 구역 좌표
+for i in range(1,9):
+    if i % 3 != 0:
+        pointA_pos_45[i] = trans(pointA_pos_45[i-1],[-40,0,0,0,0,0],0,0)
+        pointA_pos[i] = trans(pointA_pos[i-1],[-40,0,0,0,0,0],0,0)
+    else:
+        pointA_pos_45[i] = trans(pointA_pos_45[i-3],[0,40,0,0,0,0],0,0)
+        pointA_pos[i] = trans(pointA_pos[i-3],[0,40,0,0,0,0],0,0)
+for i in range(9):
+    pointA_up[i] = trans(pointA_pos[i],[0,0,36,0,0,0],0,0)
+grip_pos = [[0,0,-20,0,0,0],[0,0,-10,0,0,0],[0,0,0,0,0,0]]
+waypoint = posx(-10.29, 326.78+80, 216.88, 179.97, 140.95, 89.98)
+pointC_pos = [posx(-346.57, 140.18, 2.12-Z_pos, 89.84, 123.01+A_pos, -90.35)] * 5
+push_pos = [posx(C_posx-3, 113.3-30, -13.4, 163.87, 179.78, 72.47)] * 5
+up_pos = [0,-(140.19-105.51),0,0,0,0]
+pushed_pos = [0,((122.31-(113.3-30))),0,0,0,0]
+for i in range(1,5):
+    pointC_pos[i] = posx(-346.57-(20.5*i), 140.18, 2.12-Z_pos, 89.84, 123.01+A_pos, -90.35)
+    push_pos[i] = posx(C_posx-(20.5*i)-3, 113.3-30, -13.4, 163.87, 179.78, 72.47)
+pack_size_pos = [[0,-65,0,0,0,0],[0,-55,0,0,0,0],[0,-45,0,0,0,0]]
+posx(-346.91, 105.51, 4.4, 89.84, 112.32, -90.33)#믿에 팩이 있을때 놓는 좌표
+#============================
+def speed(a):
+    set_velx(a); set_accx(a)
+grip = lambda a : set_tool_digital_outputs([1*a,-2*a]) # grip ! /grip off !
+
+def buzz(a):
+    write(15,a)
+
+# 소수를 넣으면 정수부와 소수부를 나눠줍니다 (0.9)
+def converter(a): 
+    b = int(round(a,0)); c = int( a - int(a) )
+    tp_log("converted ! int = {}, float = {}".format(b,c))
+    return b,c
+    
+# HMI 계산 (call 0~5) / pakc = 1,2,3
+def HMI_calculate(pack):
+    global call
+    pack_l[call] = pack
+    if call % 2 == 0: # 짝수번 호출 0 (2 4)
+        device[0] += 1; device[2] += 6 + (2 * pack); device[4] -= 6 + (2 * pack)        
+    else: # 홀수번 호출 1 (3 4)
+        ed = pack_l[call-1]; ing = pack_l[call]
+        if (ed+3) + (ing+3) > 8:
+            device[0] += (1 - ((( ed +3) + ( ing +3)- 8)  / ( 3 + ed )))
+            device[1] += ((( ed +3) + ( ing +3)- 8)  / ( 3 + ed ))
+            #======공사중======
+            device[2] += (8-(ed+3))*2
+            device[4] -= (8-(ed+3))*2
+            #==================
+            device[3] += (( ed +3)+( ing +3)-8) * 2  # 4
+            device[5] -= (( ed +3)+( ing +3)-8) * 2  # 4
+        else:
+            device[0] += 1
+            device[2] += 6 + (2 * pack); device[4] -= 6 + (2 * pack)
+    call += 1
+    tp_log("{}/{}".format(device[2],device[4]))
+    
+        
+# 소수도 ok
+def HMI_set(): 
+    for i in range(6):
+        if i > 1: # 2~5
+            write(i+1,device[i]) 
+        else: # 0 ~ 1
+            int_,float_ = converter(device[i])
+            write(i+1, int(int_))
+            write(i+11, int(float_))
+    
+# A 구역 센싱
+def pointA_check(): 
+    for i in range(9): # 0 ~ 8
+        result = 0
+        if i != 0 and i % 3 == 0:
+            movel([-22 if i == 3 else 22,0,0,0,0,0], mod = 1)
+            movel([0,40,0,0,0,0], mod = 1)
+        if i > 0:movel(pointA_pos[int(15/i) if i == 3 or i == 5 else i])
+        grip(1); wait(0.22)
+        if get_tool_digital_input(1) == 1:result = 1
+        else:
+            grip(-1)
+            movel([0,0,10,0,0,0], mod = 1) # up
+            grip(1); wait(0.22)
+            if get_tool_digital_input(1) == 1:
+                result = 2
+            else: result = 3
+        pointA[int(15/i) if i == 3 or i == 5 else i] = result
+        grip(-1)
+    movel([0,0,25,0,0,0], mod = 1)
+    
+# 팩 찾기    
+def find_pack(a,home = 0):
+    for i in range(9):
+        if pointA[i] == a:
+            pointA[i] = 0
+            movec(waypoint,pointA_up[i], 1200,1200) if home == 1 else movel(pointA_up[i]) # 지금 C 구역에 있으면 화려한 무빙과 함께 집으로 향한다 하지만 1000 으로 힘조절을 하지 택
+            movel(trans(pointA_pos_45[i],grip_pos[a-1]))
+            grip(1); wait(0.095) # 팩을 확실하게 잡기위한 차분한 기다림
+            movel([0,0,60.5,0,0,0], mod = 1)
+            break
+            
+def loading(a = 0):
+    low_pack = 0
+    global low_pack
+    for i in range(6): # 0 ~ 5
+        if i % 2 == 0: low_pack = 0 # 0,2,4
+        find_pack(six_pack[i],1)# 집가서 잡기
+        if i % 2 ==0: move(pointC_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)]) # 아래 팩이 없을 때 
+        else: move(trans(pointC_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)], up_pos)) # 있을 때
+        grip(-1)
+        #==================( 밀 기 )=====================
+        if i % 2 == 0: # 아래 팩이 없을 때 
+            movel(trans(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)],[0,0,20,0,0,0])) # 무빙
+            movel(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)]) # 무빙
+            movel(trans(trans(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)],pushed_pos),[0,20,0,0,0,0]),90.90) #미는 무뷩
+        else: # 있을 때
+            movel(trans(trans(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)], up_pos),[0,0,20,0,0,0])) # 무빙
+            movel(trans(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)], up_pos)) # 무빙
+            movel(trans(push_pos[2+(0 if i == 0 or i == 1 else 1 if i == 2 or i == 3 else 2)],pushed_pos),90.90) #미는 무뷩
+        #===============================================
+        wait(0.08)# 이것은 정확도 향상을 위한 기다림이니 지우지 말아 주세요.
+        grip(-1)
+        if i % 2 == 0: # 0,2,4
+            low_pack = six_pack[i] # 0,2,4 저장
+        movel([0,0,20,0,0,0], mod = 1)# 아니 옆에 건들지 말고 쳐 드세요 ^^
+        if i < 5: buzz(2)
+        HMI_calculate(six_pack[i])
+        HMI_set()
+            
+    
+# A 구역에서 C 구역으로 팩 보네기
+def move(a): 
+    movec(waypoint,trans(a,[0,0,20,0,0,0]),movec_speed,movec_speed)
+    movel(a)
+
+def test():
+    global time_
+    speed(3000) # default speed = 500
+    count = 0
+    HMI_set() # HMI set
+    grip(-1)
+    movej([90,0,90,0,90,0,],50,50)
+    movel(pointA_up[0])
+    movel(pointA_pos[0])
+    speed(3800) # 센싱 스피드
+    while True:
+        if read(99) == 1:
+            buzz(1)
+            pointA_check()
+            speed(3000)# default speed = 500
+            for i in [1,3,3]: # 초기 배치
+                find_pack(i,0 if i == 1 else 1)
+                if i == 1: # 고정 배치
+                    movec(waypoint,posx(-369.61, 212.91, 0.74, 178.82, -127.69, 88.64),movec_speed,movec_speed) # 고정 좌표
+                    wait(0.1)# 이것은 정확도 향상을 위한 기다림이니 지우지 말아 주세요. 
+                    grip(-1)
+                    device[0] += 1; device[2] += 8; device[4] -= 8
+                else:
+                    move(pointC_pos[0+count])
+                    wait(0.1)# 이것은 정확도 향상을 위한 기다림이니 지우지 말아 주세요. 
+                    grip(-1)
+                    movel(trans(push_pos[0+count],[0,0,20,0,0,0]))
+                    movel(push_pos[0+count])
+                    movel(trans(push_pos[0+count],pushed_pos),100.100)
+                    count += 1
+                    device[0] += 1; device[2] += 12; device[4] -= 12
+                HMI_set()
+                buzz(2)
+                movel([0,0,20,0,0,0],mod = 1)
+            for i in range(9):
+                if pointA[i] != 0: six_pack.append(pointA[i]) #남은 6개의 팩을 저장
+            loading()#적재타임
+            buzz(1)
+            last = t.time()
+            timer_ = last - start
+            break
+            
+movec_speed = 700
+test()

@@ -1,0 +1,347 @@
+from collections import deque # que
+set_velx(1600); set_accx(1500) #***
+set_tool("Tool Wei"); set_tcp("전기그리퍼")
+begin_blend(3)
+
+printf = lambda li: tp_log("{}".format(li))
+
+def prt(board: str):
+    br = board[:]
+    board = ''.join(map(str,br))
+    printf(board[:3])
+    printf(board[3:6])
+    printf(board[6:9])
+    printf('-----')
+      
+    
+A = [posx(329.7, 319.84, 14.59, 90, 180, 0)]*10
+B = [posx(60.08, 381, 13.44,90, 180, 0)]*6
+C = [posx(-169.47, 281.23, 12.96, 90, 180, 0)]*24
+D = [posx(-248.98, 461.38, 13.86, 90, 180, 0)] * 10
+
+way_point = posx(0, 450, 150, 90, 180, 0)
+up_pos = [[0,0,-1.4,0,0,0],[0,0,38,0,0,0],[0,0,65,0,0,0]]
+
+for_li = [0,1,6,7,2,3,8,9,4,5]
+for i in for_li:
+    count = for_li.index(i)
+    if count == 0: continue
+    if count % 4 == 0: A[i] = trans(A[for_li[count - 4]],[0,40,0,0,0,0])
+    else: A[i] = trans(A[for_li[count-1]],[-40,0,0,0,0,0])
+for i in range(1,6):
+    if i == 4: B[i] = trans(B[1],[0,40,0,0,0,0])
+    else: B[i] = trans(B[i-1],[-40,0,0,0,0,0])
+for i in range(1,24):
+    if i == 12: C[i] = trans(C[2],[-40,0,0,0,0,0])
+    else:
+        if i % 3 == 0: C[i] = trans(C[i-3],[0,40,0,0,0,0])
+        else: C[i] = trans(C[i-1],[-40,0,0,0,0,0])    
+        
+for i in range(1,10):
+    if i in [4,7]: D[i] = trans(D[i-3],[0,40,0,0,0,0])
+    else: D[i] = trans(D[i-1],[-40,0,0,0,0,0])
+     
+def grip(n, ad=-1,val=-1):
+        wait(0.1)
+        set_tool_digital_outputs([1*n,2*-n])
+        wait(0.1)
+        
+def moves(pos, ad=-1,val=-1):
+    movel(trans(pos,up_pos[1]))
+    movel(pos)
+    grip(1,ad,val)
+    
+def movea(pos,ad=-1,val=1,bz=-1):
+    grip(-1,ad,val)
+    movel(trans(pos,up_pos[1]))
+    
+A_2,C_1,C_3 = [0] * 3  
+
+def read_board(li):
+    for i in [1,1,2,2]: li[li.index(0)] = i
+    return li
+    
+goal_br = str()
+br = str()
+copy = []
+
+isFasten = None 
+
+# 고정
+A_1 = []
+B_1 = []
+B_2 = int()
+C_2 = []; C_4 = []
+serch_result = []
+    
+def main(a,b,c):
+    global A_1,A_2,B_1,B_2,C_1,C_2,C_3,C_4,br,goal_br    
+    A_2,C_1,C_3 = a,b,c
+    
+    for i in range(30):
+        printf(" ")
+    printf("===============")
+    printf("A_2: {}".format(A_2))
+    printf('-----')
+    printf("C_1:"); prt(C_1)
+    printf("C_3:"); prt(C_3)
+    
+    # 고정
+    A_1 = [0] * 4
+    B_1 = [1,0,0,0]
+    B_2 = 1
+    C_2 = [9,0,0]; C_4 = [9,0,0]   
+    serch_result = [0,0,0] 
+    
+    copy = C_1[:],C_3[:]
+    goal_br = ''.join(map(str,C_1))
+    br = ''.join(map(str,read_board(C_3)))
+    C_1,C_3 = copy[0],copy[1]
+    
+    def mr(board: str):
+        board = list(board)
+        board = [board[i-1] for i in [3,2,1,6,5,4,9,8,7]]
+        return ''.join(map(str,board))
+    
+    def change(str_br: str, now_pos: int, new_pos: int):
+        br = list(str_br)
+        br[now_pos],br[new_pos] = br[new_pos],br[now_pos]
+        return ''.join(br)
+    
+    def direction(board: str):    
+        result = []
+        for i in range(2): # 0 ~ 1        
+            br = board[::-1] if i else board[:]
+            pos = abs( (8 if i else 0) - br.index('0'))
+            br = board[:]
+            def rule(n,li = [-3,3,-1,1]): # 3 고정 여부
+                return (br[pos+li[n]] is not '3') if isFasten else True        
+            if pos not in (0,1,2) and rule(0): #up
+                result.append(change(br,pos,pos - 3))
+            if pos not in (6,7,8) and rule(1): #down
+                result.append(change(br,pos,pos + 3))
+            if pos not in (0,3,6) and rule(2): #left
+                result.append(change(br,pos,pos - 1))
+            if pos not in (2,5,8) and rule(3): #right
+                result.append(change(br,pos,pos + 1))            
+        return result
+    
+    def bfs(start: str, goal: str):
+        que = deque()
+        que.append(start) # 첫 번째 노드 
+        marked = {start: "start"} # 마킹
+        board = 'str'
+        while board != goal:
+            board = que.popleft()
+            for state in direction(board):
+                if state not in marked:
+                    marked[state] = board
+                    que.append(state)
+        return marked
+    
+    def making_recode(start: str,goal: str,marked):
+        recode = []
+        node = goal
+        while node != start:
+            recode.append(list(map(int,node)))
+            node = marked[node]
+        recode.append(list(map(int,start)))
+        return recode[::-1]
+     
+    def bfs_serch(start,goal,TorF: bool):
+        global isFasten
+        isFasten = TorF
+        start_state = start # 시작 보드 
+        goal_state = mr(goal) if isFasten else goal # 종료 보드
+        marked = bfs(start_state,goal_state)
+        return making_recode(start_state,goal_state,marked)   
+                
+    def converter(li):
+        if len(li) == 1: return -1
+        new_li = []
+        for i in range(len(li)):
+            for j in range(9):
+                if li[i+1][j] == 0 and li[i][j] != 0: a = j
+                if li[i][j] == 0 and li[i+1][j] != 0: b = j
+            new_li.append(a)
+            new_li.append(b)
+            if li[i+1] == li[-1]:
+                return new_li
+        
+    def open_close(n):
+        global B_2
+        if B_2 == n: return -1
+        B_2 = n
+        moves(B[5-n], 40-n, 0)
+        movel(trans(B[5-n],[0,0,3,0,0,0]))
+        movel(trans(B[4+n],[0,0,3,0,0,0]))
+        movel(B[4+n])
+        movea(B[4+n], 39+n, 3,2)
+        
+    def up_down(n):
+        _next = n - 1
+        _now = B_1.index(1)
+        if _next == _now: return -1    
+        open_close(1)
+        moves(B[_now],35+_now,0)
+        movec(trans(B[_next],[0,0,5,0,0,0]),trans(B[_next],up_pos[0]),2000,1200)
+        movea(B[_next],35+_next,3)
+        open_close(0)
+        B_1[_now]= 0
+        B_1[_next] = 1
+        
+    def put_pack():
+        for i in range(2):
+            pack = A_1[1-i]
+            if i == 0: movel(trans(A[7-i],up_pos[1]))
+            else: movec(way_point,trans(A[7-i],up_pos[1]))        
+            movel(A[7-i])
+            grip(1, 26-i,0)
+            movel(trans(A[7-i],up_pos[1]))
+            c = C_4 if pack == 3 else C_3
+            err = 21 if pack == 3 else 12
+            movec(way_point,trans(C[err+c.index(0)],up_pos[2]))
+            movel(trans(C[err+c.index(0)],up_pos[0]))
+            movea(C[err+c.index(0)], (err+1)+c.index(0), pack)
+            c[c.index(0)] = pack
+            A_1[1-i] = 0
+            
+    def load_pack(num_li = [3,1,3,1,2,2]):
+        for i in range(0,6,2):
+            for j in range(2):
+                n = A_2.index(num_li[i+j])
+                f = 4 if n in [0,1] else 3 if n in [2,3] else 2
+                seat = A_1.index(0)            
+                up_down(f)
+                moves(A[n], 29+n, 0)
+                movel(trans(A[n],up_pos[2]))
+                movel(trans(A[6+seat],up_pos[2]))
+                movel(A[6+seat])                
+                movea(A[6+seat], 25+seat, num_li[i+j])
+                A_1[seat] = num_li[i+j]
+                A_2[n] = 0
+            up_down(1)
+            put_pack()
+        for i in [35,39]:
+                moves(B[i-35])
+                movec(trans(B[i-35],[-1,0,3,0,0,0]),trans(C[9+C_2.index(0)],up_pos[2]))
+                movel(trans(C[9+C_2.index(0)],up_pos[0]))
+                movea(C[9+C_2.index(0)], 10+C_2.index(0), 3)
+                C_2[C_2.index(0)] = 3
+                
+    def serch():
+        drl_report_line(OFF)
+        # goal_br 와 br을 문자열로 받음
+        global goal_br, br
+        copy = goal_br[:], br[:]
+        # C - 3 거울배치 
+        serch_result[0] = converter(bfs_serch(br,goal_br,True)) 
+        
+        # C - 3 재정렬 
+        goal_br, br = copy[0],copy[1]
+        br,goal_br = mr(goal_br),'111222300'
+        serch_result[2] = converter(bfs_serch(br,goal_br,False)) 
+        
+        goal_br, br = copy[0],copy[1]
+        br,goal_br = goal_br[:],'111222300'# C - 1 재정렬 
+        serch_result[1] = converter(bfs_serch(br,goal_br,False))
+        drl_report_line(ON)
+        
+    def solving_puzzle():
+        maintain = 0; count = -1
+        err = [12,0,12]
+        for li in serch_result:
+            count += 1       
+            for i in range(0,len(li),2):
+                s = err[count]+li[i]
+                a = err[count]+li[i+1]
+                if maintain == 0: moves(C[s])
+                else: maintain = 0
+                movec(trans(C[a],[0,0,1.5,0,0,0]),C[a],2000,1200)
+                if i + 2 < len(li):
+                    if li[i+2] != li[i+1]: movea(C[a])
+                    else: maintain = 1;
+                else: movea(C[a])
+        for i in [10,11,22,23]:
+            moves(C[i], i+1, 0)
+            movec(trans(C[i-3],[0,0,1.5,0,0,0]),C[i-3],2000,1200)
+            movea(C[i-3], i-2, 3)
+            
+    def run():
+        serch()
+        grip(-1)
+        movel(trans(B[0],up_pos[1]))
+        load_pack()
+        solving_puzzle()            
+    run()
+    
+def random_pal():
+    mr = lambda li: [li[i-1] for i in [3,2,1,6,5,4,9,8,7]]
+    A_2 = [1,2,3,1,2,3]
+    C_1 = [0]*9
+    C_3 = [0]*9
+    random.shuffle(A_2)
+    C_1[random.randint(0,8)] = 3
+    C_3 = mr(C_1)
+    num_li =  [[1,1,1,2,2,2],[1,2]]
+    Cs = [C_1,C_3]
+    for j in num_li:
+        C = Cs[num_li.index(j)]
+        for i in j:
+            while 1:
+                pos = random.randint(0,8)
+                if not C[pos]: break
+            C[pos] = i
+    return A_2,C_1,C_3 
+    
+def moving(s,a,n = 10,mode = 0):
+    moves(s)
+    if 1 <  n < 5 :  movel(trans(s,up_pos[2]))
+    if mode:
+        up_a = trans(a,up_pos[1])
+        movec(trans(up_a,[0,0,1.5,0,0,0]),up_a)
+        movel(a)
+    else: movec(trans(a,[0,0,1.5,0,0,0]),a)
+    movea(a)
+    
+def __reset__(a,b,c):
+    a_2,c_1,c_3 = a[:],b[:],c[:]
+    start_pos = [C[6],C[7],C[12],C[15],C[18]]+[C[8],C[5],C[4],C[3],C[2],C[1],C[0]]
+    arrival_pos = [B[0],B[5],D[7],D[8],D[9]]+[D[6],D[5],D[4],D[3],D[2],D[1],D[0]]
+    for i in range(len(start_pos)):
+        moving(start_pos[i],arrival_pos[i],i)
+    
+    count = 0
+    for pos in [C[13],C[14],C[16],C[17],C[19],C[20]]: # 112233 순으로 가져옴
+        count += 1
+        num_li = [1,1,2,2,3,3]
+        num = num_li[count - 1]        
+        if count == 1: moves(pos)
+        else: 
+            movec(way_point,trans(pos,up_pos[1]))
+            movel(pos)
+            grip(1)            
+        movel(trans(pos,up_pos[2]))
+        movec(way_point,trans(A[a_2.index(num)],up_pos[2]))
+        movel(A[0+a_2.index(num)])
+        movea(A[0+a_2.index(num)])
+        a_2[a_2.index(num)] = None
+        
+    count = 0
+    num_li = [1,1,1,2,2,2,3]+[1,2,3]
+    for pos in D: # 원형1112223사각123
+        count += 1
+        _C = c_1  if count < 8 else c_3
+        err = 0 if count < 8 else 12
+        num = num_li[count - 1]
+        arrival =  C[err + _C.index(num)] 
+        moving(pos,arrival,0,1)
+        _C[_C.index(num)] = None           
+     
+_1,_2,_3 = [1,3,2,2,3,1],[1,1,2,0,2,1,3,2,0],[0,0,0,0,0,0,1,2,3] 
+while 1:
+    movej([90,0,90,0,90,90],60,60)
+    main(_1,_2,_3)
+    _1,_2,_3 = random_pal()
+    __reset__(_1,_2,_3)
+

@@ -1,0 +1,44 @@
+def ts(a,b,c,m,mr=0,mc=0):
+    if mr:k='00RSB06%DW'
+    else:k='00WSB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not mr else mr*mc # 처리할 데이터 갯수
+    k+=[ord(str(abs(i))) for i in [a,b,c]]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not mr:
+        for i in m:
+            if i<0:i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.05)
+    k=ser.read(ser.inWaiting())
+    if mr:#읽기 일 때
+        for i in range(0,mr*mc*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):v-=2**16 
+            m.append(v)
+
+ser=serial_open("COM")
+#
+##쓰기
+#ts(0,0,0,[1,2,3,4,5,6,7,8,9]) #D111 <= 10 쓰기
+#
+#
+#
+##읽기
+#def read(a,b,c,mr,mc):
+    #m=[]
+    #ts(a,b,c,m,mr,mc)
+    #return m
+    #
+#A=read(0,0,0,3,3)
+#
+#tp_log('{}'.format(A))
+
+while 1:
+    ts(0,7,0,[1])
+    wait(0)
+    ts(0,7,0,[0])
+
+
+

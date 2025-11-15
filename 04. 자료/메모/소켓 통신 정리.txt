@@ -1,0 +1,23 @@
+-idle
+from socket import *
+import time
+
+while 1:
+    Sock = socket(AF_INET, SOCK_STREAM)
+    while 1:
+        try:
+            Sock.connect(('192.168.137.100',20001))
+        except:
+            time.sleep(0.1)
+            print('.')
+            continue
+        else: break
+    Sock.send(bytes(str(None),'utf-8'))
+
+-Dart
+port = 20001
+sock = server_socket_open(port)
+n = eval(server_socket_read(sock)[1].decode())
+tp_log(n)
+server_socket_close(sock)
+
