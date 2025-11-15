@@ -1,0 +1,26 @@
+set_velx(100), set_accx(100) # 속도, 가속도 
+set_velj(30), set_accj(30)
+movej([90,0,90,0,90,90]) # 집 가기 
+svm_connect() # 연결 
+
+jd = 2000
+
+svm_set_job(jd) # 촬영 자세 
+svm_home = svm_get_robot_pose(jd)
+movej(svm_home)
+
+count=svm_get_vision_info(jd)    
+if (count == 1):
+    pos_result = svm_get_variable(jd, POSX_TYPE)#tool id, variable type
+    
+    id_list =[jd]
+    pos_list =[pos_result]
+    
+    svm_set_init_pos_data(id_list,pos_list)
+    
+    rob_posx= svm_get_offset_pos(posx(-2.53, 470.12, 50.58, 150.28, 178.21, -122.89),jd)#posx(-38.95, 561.39, 50.38, 148.54, -178.29, 49.82)
+    movel(rob_posx)
+else:
+    tp_popup('Error')
+    
+svm_disconnect()

@@ -1,0 +1,51 @@
+{
+  "Count": "8",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "A0",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "A1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "A2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "A3",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "A4",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable5": {
+    "Type": "Debug",
+    "Name": "A5",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable6": {
+    "Type": "Debug",
+    "Name": "A6",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable7": {
+    "Type": "Debug",
+    "Name": "A7",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

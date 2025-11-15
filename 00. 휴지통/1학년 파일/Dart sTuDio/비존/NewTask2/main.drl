@@ -1,0 +1,14 @@
+set_velx(100); set_accx(100)
+svm_connect()
+z = 250; ret = 0; btype = 0; bdata = 0
+
+movel([-6.25, 367.31, z, 90, -150, 90])
+while z < 360:
+    begin_blend(40)
+    ret, btype, bdata = svm_detect_barcode()
+    if ret == 1: tp_log("Type={1}, Data={2}".format(ret,btype,bdata))
+    else: tp_log("Fail !")
+    if int(ret) == 1: break
+    z += 10
+    movel([-6.25, 367.31, z, 90, -150, 90])
+    

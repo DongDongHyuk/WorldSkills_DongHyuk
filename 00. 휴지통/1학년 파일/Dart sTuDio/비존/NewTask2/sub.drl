@@ -1,0 +1,4 @@
+svm_connect()
+job_id = 2000
+a = svm_set_camera_load(job_id)
+tp_log("{}".format(a))

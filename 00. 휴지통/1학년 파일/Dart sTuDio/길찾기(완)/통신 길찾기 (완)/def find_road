@@ -1,0 +1,12 @@
+def find_road(size_y,size_x,start_y,start_x,end_y,end_x):
+    global A
+    a = 1 
+    fy = [-1,1,0,0]; fx = [0,0,1,-1]
+    A = [[9 if x == 0 or y == 0 or x == 9 or y == 7 else 9 if read((y-1)*8+x) == 3 else 0 for x in range(10)]for y in range(8)]
+    while True:
+        a += 1
+        for i in range(4): # 상 하 좌 우
+            if A[start_y+fy[i]][start_x+fx[i]] == 0:
+                A[start_y+fy[i]][start_x+fx[i]] = a
+
+find_road(6,8,1,1,0,0)

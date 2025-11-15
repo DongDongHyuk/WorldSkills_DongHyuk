@@ -1,0 +1,29 @@
+set_velx(100), set_accx(100)
+set_velj(30), set_accj(30)
+movej([90,0,90,0,90,90])
+svm_connect()
+
+jd = 2000
+
+svm_set_job(jd)
+svm_home = svm_get_robot_pose(jd)
+movej(svm_home)
+
+if svm_get_vision_info(jd):
+    pos_result = svm_get_variable(jd+1, POSX_TYPE)
+    svm_100 =  svm_get_variable(jd+1, VALUE_TYPE)
+    svm_100 = int(svm_100)
+    
+    #tool_list = [jd+1]
+    Id_list = [jd+1]
+    pos_list = [pos_result]
+    
+    svm_set_init_pos_data(Id_list,pos_list)
+
+    mx = svm_get_offset_pos(posx(5.91, 469.61, 50.38, 138.54, 178.29, -130.18), jd+1)#posx(-38.95, 561.39, 50.38, 148.54, -178.29, 49.82)
+    movel(mx)
+    
+else:
+    tp_popup('error')
+   
+svm_disconnect()

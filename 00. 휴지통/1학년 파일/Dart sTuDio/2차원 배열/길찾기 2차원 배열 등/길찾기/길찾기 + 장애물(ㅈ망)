@@ -1,0 +1,240 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 5'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 5'.split()
+w[0],r[0] = [5] * 2
+w[20],r[16] = [4] * 2
+for i in range(1,20):
+    w[i] = ord(w[i])
+    if i < 16: r[i] = ord(r[i])
+
+def write(ad,val):
+    ser = serial_open(port = 'COM')
+    w[14] = ord(str(ad // 10))
+    w[15] = ord(str(ad % 10))
+    if val < 16:
+        w[18] = ord(str(0))
+        w[19] = ord(hex(val)[2])
+    else:
+        w[18] = ord(hex(val)[2])
+        w[19] = ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[14] = ord(str(ad // 10))
+    r[15] = ord(str(ad % 10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    sum = int(r2[10:14],16)
+    return sum
+#===========================================================
+
+set_velx(300), set_accx(300)#전역속도설정
+ 
+#변수 선언 
+a = add = a0 = a1 = count = juststop  =  0
+sel =  aa = Exit = 0  
+dywm = 1
+condition = 'default'
+yv = [0,0]; xv = [0,0]; box = [0,0]; 
+cdt = [0,0,0,0]; BOX = [0,0,0,0]
+
+XU = [posx(138.81, 279.71, 50, 62.47, 180, 62.72)]*48
+
+for x in range(1,48):
+    if x%8 != 0:
+        XU[x] = trans(XU[x-1], [-40,0,0,0,0,0], 0, 0)
+    else:
+        XU[x] = trans(XU[x-8], [0,40,0,0,0,0], 0, 0)
+        
+
+A = [[9]*10 for _ in range(8)]
+for y in range(1,7):
+    for x in range(1,9):
+        A[y][x] = 0
+B = []
+for i in A:
+    B.append(i[:])
+    
+for y in range(1,7):
+    for x in range(1,9):
+        if B[y][x] == 0: 
+            B[y][x] = XU[a]; a = a+1; global B  
+    
+A0 = A[0];A1 = A[1];A2 = A[2];A3 = A[3];
+A4 = A[4];A5 = A[5];A6 = A[6];A7 = A[7];
+
+def reset():
+    for y in range(1,7):
+        for x in range(1,9):
+            if A[y][x] == 2: 
+                A[y][x] = 0 
+                
+def restart():
+    for y in range(1,7):
+        for x in range(1,9):
+            if A[y][x] == 1: 
+                A[y][x] = 0    
+         
+# 출발 도착 (통신) & 장애물 찾기  ========================
+for i in range(2):
+    if i == 1:
+        add = 1; a0 = 1
+    for y in range(1,7):
+        for x in range(1,9):
+            if read((y-1)*8+x) == 1+add:
+                yv[0+a0] = y
+                xv[0+a0] = x
+                break
+    if i == 0:
+        for y in range(1,7):
+            for x in range(1,9):
+                if read((y-1)*8+x) == 3:
+                    A[y][x] = 9
+                    a1 = a1 + 1
+#===================================================
+restart()
+movel([0,0,100,0,0,0], mod = 1);
+set_tool_digital_outputs([-1,2])
+
+movela = B[yv[0]][xv[0]]
+start = trans(movela, [0,0,110,0,0,0], 0, 0)
+movel(start)
+movel([0,0,-120,0,0,0], mod = 1)
+set_tool_digital_outputs([1,-2])
+A[yv[0]][xv[0]] = 1
+movel([0,0,10,0,0,0], mod = 1)  
+    
+# 현재 갈 수 있는 길찾기 
+def find():
+    for i in range(4):
+        if i % 2 == 0:            
+            a = 1
+            if i < 2:
+                b = -1
+            else: 
+                a = 0; b = 1
+        else:
+            a = -1
+            if i < 2:
+                b = 1
+            else:
+                a = 0; b = -1
+        if A[yv[0]+a][xv[0]+b+a] == 0:
+            cdt[i] = 1
+       
+            
+            
+#갈림길일때 길 찾기 
+def np():
+    global cdt
+    a = b = 0
+    box[0] = yv[0]
+    box[1] = xv[0]
+    for t in range(4):
+        wait(3)
+        if BOX[t] == 1:
+            wait(5)
+            inB = t
+            break
+    
+    while True:
+        for i in range(4):
+            if cdt[i] == 1:
+                if i == 0:
+                    yv[0] = yv[0] + 1
+                    A[yv[0]][xv[0]] = 2
+                elif i == 1:
+                    yv[0] = yv[0] - 1
+                    A[yv[0]][xv[0]] = 2
+                elif i == 2:
+                    xv[0] = xv[0] + 1
+                    A[yv[0]][xv[0]] = 2
+                elif i == 3:
+                    xv[0] = xv[0] - 1
+                    A[yv[0]][xv[0]] = 2
+                cdt = [0,0,0,0]
+        find() 
+        if cdt == [0,0,0,0]:
+            yv[0] = box[0]
+            xv[0] = box[1]
+            find()
+            wait(5)
+            cdt = [0,0,0,0]  
+            wait(5)
+            cdt[inB] = 1
+            wait(5)
+            for i in range(4):
+                if cdt[i] == 1:
+                    if i == 0:
+                        A[yv[0]+1][xv[0]] = 9                        
+                    elif i == 1: 
+                        A[yv[0]-1][xv[0]] = 9                        
+                    elif i == 2: 
+                        A[yv[0]][xv[0]+1] = 9                        
+                    elif i == 3:  
+                        A[yv[0]][xv[0]-1] = 9                                            
+            a = 1
+        if a == 1:
+            cdt = [0,0,0,0] # 초기화
+            find()
+            break
+            
+def fuck():
+    global cdt, count,  BOX
+    for l in range(4):
+        if cdt[l] == 1:
+            count = count + 1
+            if count >= 2:
+                condition = '갈림길'                
+                BOX = cdt
+                np()
+                reset()
+                find()
+    count = 0
+        
+while(1): #main    
+    fuck()        
+
+    #move y
+    if A[yv[0]+1][xv[0]] == 0:
+        yv[0] = yv[0] + 1  
+    elif A[yv[0]-1][xv[0]] == 0:
+        yv[0] = yv[0] - 1
+    movel(B[yv[0]][xv[0]])
+    A[yv[0]][xv[0]] = 1
+    
+    fuck()
+    cdt = [0,0,0,0] # 초기화
+    find()
+           
+    #move x
+    if A[yv[0]][xv[0]+1] == 0:
+        xv[0] = xv[0] + 1
+    elif A[yv[0]][xv[0]-1] == 0:
+        xv[0] = xv[0] - 1
+    movel(B[yv[0]][xv[0]])
+    A[yv[0]][xv[0]] = 1      
+    
+    fuck()
+    cdt = [0,0,0,0] # 초기화
+    find()
+   
+    if yv[0] == yv[1] and xv[0] == xv[1]:
+        movel([0,0,-10,0,0,0], mod = 1)
+        set_tool_digital_outputs([-1,2])
+        break
+    
+    if juststop == 1:
+        break
+      
+'''
+condition == 두갈림길 이면 임시로 1을 넣어서 목적지 까지 
+도달하는지 확인후 이동 횟수가 적은 쪽으로 이동
+(막히거나 먼 길은 9로 막음)
+'''
+         
+    

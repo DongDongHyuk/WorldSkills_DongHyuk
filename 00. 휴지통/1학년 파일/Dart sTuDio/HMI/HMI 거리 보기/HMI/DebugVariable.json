@@ -1,0 +1,33 @@
+{
+  "Count": "5",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "y",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "x",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "stop_",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "y_",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "x_",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

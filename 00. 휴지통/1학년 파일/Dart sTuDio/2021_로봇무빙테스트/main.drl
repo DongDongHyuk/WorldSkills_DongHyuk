@@ -1,0 +1,76 @@
+w = "5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4".split()
+w[0] = 5
+w[20] = 4
+for i in range(1, 20):
+    w[i] = ord(w[i])
+def write(ad, val, type = 1):
+    ser = serial_open(port = "COM")
+    if type==1: #D => serial
+        w[11] = ord("D")
+    if type==2: #C => index
+        w[11] = ord("C")
+    
+    w[13] = ord(str(ad//100))
+    w[14] = ord(str((ad%100)//10))
+    w[15] = ord(str(ad%10))
+    if val<16:
+        w[19] = ord(hex(val)[2])
+    elif val<256:
+        w[18] = ord(hex(val)[2])
+        w[19] = ord(hex(val)[3])
+    else:
+        w[17] = ord(hex(val)[2])
+        w[18] = ord(hex(val)[3])
+        w[19] = ord(hex(val)[4])
+    ser.write(bytearray(w))
+    wait(0.02)
+    serial_close(ser)
+#========================================
+serial_mode = 1
+index_mode = 2
+
+#write(1, 201, index_mode)
+#========================================
+dex = [0, 1, 2, 3, 0, 1, 2, 3]
+for i in range(8):
+    write(i+1, dex[i])
+signal = 0
+squence = [1, 1, 2, 2, 3, 3]
+
+def thread_dex():
+    global dex, signal, squence
+    if len(squence)==0:
+        thread_pause(th_id)
+    if dex[0]==squence[0]:
+        signal = 999
+    if dex[0]!=squence[0]:
+        signal = 0
+        cw = dex.index(squence[0])
+        dex.reverse()
+        ccw = dex.index(squence[0])+1
+        dex.reverse()
+        if cw<ccw or cw==ccw:
+            write(1, 201*cw, index_mode)
+            for i in range(cw):
+                dex.append(dex.pop(0))
+            wait(0.7*cw)
+        else:
+            write(2, 201*ccw, index_mode)
+            for i in range(ccw):
+                dex.insert(0, dex.pop(7))
+            wait(0.7*ccw)
+#========================================
+th_id = thread_run(thread_dex, loop = True)
+while 1:
+    if signal==999:
+        movel([0,-40,0,0,0,0], 200, 200, mod=1)
+        tp_log("{}".format(dex))
+        tp_log("{}".format(squence))
+        write(1, 0, serial_mode)
+        set_tool_digital_outputs([1, -2])
+        wait(0.1)
+        movel([0,40,0,0,0,0], 200, 200, mod=1)
+        set_tool_digital_outputs([-1, 2])
+        
+        del squence[0]
+        dex[0] = 0

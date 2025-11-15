@@ -1,0 +1,25 @@
+# 1. Header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_motion_end(DR_CHECK_OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(350)
+begin_blend(19)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos):
+    movejx(pos,sol=2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1):
+    amj([x,y,z,a,b,c],mod=1)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [400,300,300,400][T]
+    p[2] = p[2] + h if mod else h
+    return p
+
+ml(posx(-106.35, 386.78, 223.63, 0, -90, -90))
+posx(-106.35, 386.78, 229.08, 180, 90, 90)

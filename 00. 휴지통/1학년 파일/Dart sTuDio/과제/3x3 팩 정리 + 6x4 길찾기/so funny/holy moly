@@ -1,0 +1,248 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4                
+
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+
+#drl_report_line(OFF)
+speed = 1000
+set_velx(speed), set_accx(speed)#전역속도설정
+
+XU = [[],[],[]];
+def pos(a):
+    result = posx(298.45, 320.09, 100, 30.69, 180, 30.11) if a == 0 else posx(-20.49, 480.65, 100, 144.56, -180, 144.31) if a == 1 else posx(99.16, 319.71, 100, 71.46, 180, 71.46)
+    return result
+    
+for i in range(0,3): # 0~2
+    xu = [pos(i)] * (lambda a: 24 if a == 2 else 9)(i)
+    for x in range(1, (lambda a: 24 if a == 2 else 9)(i)):
+        if x%(lambda a: 6 if a == 2 else 3)(i) != 0:
+            xu[x] = trans(xu[x-1], [-40,0,0,0,0,0], 0, 0)
+        else:
+            xu[x] = trans(xu[x-(lambda a: 6 if a == 2 else 3)(i)], [0,40,0,0,0,0], 0, 0)
+    XU[i] = xu;
+XU_start = XU[0]; XU_stop = XU[1]; XU_ = XU[2]
+
+#============( 변 수 )==============*
+yv = [0] * 3; xv = [0] * 3; order = [0] * 3; par = [0] * 9; reset_par = [0] * 9; y_el = [-1,1,0,0]; x_el =[0,0,-1,1]# list
+nextY = [0] * 4; nextX = [0] * 4; ya = [0] * 3; xa = [0] * 3 # list
+a = b = c = y_ = x_ = last_point = count_ = counting = S = 0# int
+global count_, yv, xv, ya, xa, reset_par
+#================================*
+
+# 장애물 찾기 + 팔레트 만들기 
+A = [[99 if x == 0 or y == 0 or x == 7 or y == 5 else 99 if read((y-1)*6+x) == 4 else 0 for x in range(8)]for y in range(6)]
+B = [[9 if x == 0 or y == 0 or x == 7 or y == 5 else (lambda x,y: XU_[((y-1)*6+x)-1])(x,y) for x in range(8)]for y in range(6)]
+C = [[9 if x == 0 or y == 0 or x == 4 or y == 4 else (lambda x,y: XU_stop[((y-1)*3+x)-1])(x,y) for x in range(5)]for y in range(5)]
+# 출발 위치 저장
+yv[0] = 1
+xv[0] = 1
+#도착 위치 저장
+yv[1] = 4 # y는 고정
+for i in range(4,7):
+    if A[4][i] == 0:
+        xv[1] = i        
+yv[2] = yv[0]# 도착위치 초기값 저장 
+xv[2] = xv[0]
+
+def Ace():
+    global A0,A1,A2,A3,A4,A5
+    A0 = A[0]
+    A1 = A[1]
+    A2 = A[2]
+    A3 = A[3]
+    A4 = A[4]
+    A5 = A[5]
+
+# 1: grip ! / -1: grip off !  (1 or -1)
+def grip(a,size): 
+    movel([0,0,-size,0,0,0], mod = 1) # down
+    set_tool_digital_outputs([1*a,-2*a]) # grip off ! / grip !
+    wait(0.2)
+    movel([0,0,+87,0,0,0], mod = 1) # up
+    
+#길 만들기 
+def find_road(size_y,size_x,s_y,s_x,e_y,e_x,communication,val_wall):
+    point = 2; count = 1; last_point = 0; global A,last_point
+    A = [[99 if x == 0 or y == 0 or x == size_x+1 or y == size_y+1 else 88 if communication == 1 and read((y-1)*size_x+x) == val_wall else 0 for x in range(size_x+2)]for y in range(size_y+2)]
+    y = [s_y,e_y]; x = [s_x,e_x]; Y = [-1,1,0,0]; X = [0,0,1,-1]; nextY = [0] * 100; nextX = [0] * 100
+    A[y[0]][x[0]] = 1; nextY[0] = y[0]; nextX[0] = x[0]; Ace()
+    while A[y[1]][x[1]] == 0:
+        for l in range(count):
+            y[0] = nextY[l]
+            x[0] = nextX[l]
+            for i in range(4):
+                if A[y[0]+Y[i]][x[0]+X[i]] == 0:
+                    A[y[0]+Y[i]][x[0]+X[i]] = point
+                    nextY[count] = y[0]+Y[i]
+                    nextX[count] = x[0]+X[i]
+                    count += 1 
+        last_point = point; point += 1;
+    A[y[1]][x[1]] = 1; 
+    while last_point != 1:
+        last_point -= 1
+        for i in range(4):
+            if A[y[1]+Y[i]][x[1]+X[i]] == last_point: 
+                A[y[1]+Y[i]][x[1]+X[i]] = 1
+                y[1] += Y[i]; x[1] += X[i]
+    A =[[1 if A[y][x] == 1 else 0  for x in range(size_x+2)]for y in range(size_y+2)];Ace()
+#길 타기
+def go_road():
+    begin_blend(19)
+    global A
+    yv[0] = yv[2] # 초기 출발 지점 가져오기 
+    xv[0] = xv[2]
+    movel(B[yv[0]][xv[0]])
+    movel([0,0,-60,0,0,0], mod = 1)
+    A[yv[0]][xv[0]] = 7 # 시작 위치 지난 표시 7
+    while A[yv[1]][xv[1]] == 1:
+        for i in range(4): # 0 ~ 3
+            if A[yv[0]+y_el[i]][xv[0]+x_el[i]] == 1:
+                A[yv[0]+y_el[i]][xv[0]+x_el[i]] = 7 # 지나간 곳 표시      
+                movel(trans(B[yv[0]+y_el[i]][xv[0]+x_el[i]], [0,0,-60,0,0,0],0,0)) # 실제 로봇 무빙
+                yv[0] += y_el[i]; xv[0] += x_el[i]
+    A =[[1 if A[y][x] == 7 else 0 for x in range(8)]for y in range(6)]
+    Ace()
+    end_blend()
+#stop 파레트에 정렬 하기 
+def sort(a):
+    global counting,arrival
+    # order 값 만들기 
+    if count_ <= 9 and count_ > 6 :
+        for i in range(1,4): # 1~3
+            if xa[2] == i:
+                if i == 1:
+                    order = [3,2,1]
+                if i == 2:
+                    order = [1,3,2]
+                if i == 3:
+                    order = [1,2,3]
+    for i in range(4,7): #출발지 찾기 (4~6)
+        if xv[0] == i:
+            ya[0] = 1
+            xa[0] = i - 3
+            ya[2]= ya[0] # ya,xa의 초기 지점을 저장
+            xa[2] = xa[0]
+            break
+    arrival = 10 - a #목적지 찾기
+    if count_ <= 9 and count_ > 6 : # 큰팩은 order에 의해서 순서가 정해짐
+        arrival = order[counting]
+        counting += 1
+    for y in range(1,4):
+        for x in range(1,4):
+            if ((y-1)*3+x) == arrival:
+                ya[1] = y
+                xa[1] = x
+    movel(trans(C[ya[0]][xa[0]],[0,0,-60,0,0,0],0,0)) # stop 파레트에 입장    
+    while True:
+        while xa[0] != xa[1]:
+            if xa[0] != xa[1]: # x
+                xa[0] += 1
+                if xa[0] > xa[1]:
+                    xa[0] -= 2
+                movel(trans(C[ya[0]][xa[0]],[0,0,-60,0,0,0],0,0))
+        if ya[0] < ya[1]: # y
+            ya[0] += 1
+            movel(trans(C[ya[0]][xa[0]],[0,0,-60,0,0,0],0,0))
+        if ya[0] == ya[1] and xa[0] == xa[1]:
+            ya[0] = ya[2] #reset
+            xa[0] = xa[2]
+            break
+    err = 0
+    if count_ >= 7:
+        write(order[count_-7]+109,(lambda count_:1 if count_ <= 3 else 2 if count_ <= 6 else 3)(count_))
+    else:
+        write((10 - count_)+109,(lambda count_:1 if count_ <= 3 else 2 if count_ <= 6 else 3)(count_))
+# 작은 팩부터 잡기 (a: 1,2,3)
+def sml(a):
+    counting_star = 0
+    a_ = a * 3
+    if l <= a_: # 작은 팩 
+        for i in range(9):
+            if par[i] == a:
+                par[i] = 0
+                movel(XU_start[i])
+                grip(1,87) # grip !
+                for i in range(9):
+                    if par[i] != par_[i]:
+                        counting_star = i
+                        par[i] = 9
+                        par_[i] = 9
+                write(counting_star+101,0)
+                break
+def reset(a):
+    global S,reset_par
+    movel(XU_stop[8-S])
+    grip(1,87)
+    for i in range(9):
+        if reset_par[i] == a:
+            reset_par[i] = 0
+            break
+    movel(XU_start[i])
+    grip(-1,87)
+    S+=1     
+    
+#int main(){
+#=========( 길 찾 기 )==========
+A[yv[0]][xv[0]] = 1 # 출발지점 -1 표시  
+nextY[0] = yv[0]# 초기값( 출발 지점 ) 
+nextX[0] = xv[0]
+find_road(4,6,yv[0],xv[0],yv[1],xv[1],1,4)#길 찾기 입장
+#====(A 파레트에서 작은 팩 부터 잡기)=====
+save = [1,3,3,2,3,2,1,2,1]
+for i in range(110,119):
+    write(i,0)
+for l in range(9):
+    write(101+l,save[l])
+#=======================
+for i in range(101,110): # par에 팩 위치 입력
+    for l in range(1,4): # 1~3
+        if read(i) == l: par[i-101] = l
+par_ = [0] * 9
+for i in range(9):
+    par_[i] = par[i]
+    reset_par[i] = par[i]
+#=======================
+Ace()
+set_tool_digital_outputs([-1,2])
+#====================================
+for l in range(1,10): # 작은 팩 -> 중간 팩 -> 큰 팩
+    c = (lambda l: 1 if l <= 3 else 2 if l <= 6 else 3)(l)
+    count_ += 1 # 현재 옮긴 팩의 순서
+    sml(c) # 잡기 
+    go_road() # 길찾기
+    sort(count_) # 정리 
+    grip(-1,27) # 놓기   
+for i in range(1,10):
+    c = (lambda i: 1 if i <= 3 else 2 if i <= 6 else 3)(i)
+    reset(c)
+move_home(1)

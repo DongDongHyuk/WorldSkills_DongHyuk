@@ -1,0 +1,147 @@
+{
+  "Count": "24",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "A0",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "A1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "A2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "A3",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "A4",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable5": {
+    "Type": "Debug",
+    "Name": "A5",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable6": {
+    "Type": "Debug",
+    "Name": "A6",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable7": {
+    "Type": "Debug",
+    "Name": "A7",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable8": {
+    "Type": "Debug",
+    "Name": "yv",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable9": {
+    "Type": "Debug",
+    "Name": "xv",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable10": {
+    "Type": "Debug",
+    "Name": "cl",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable11": {
+    "Type": "Debug",
+    "Name": "yxbox",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable12": {
+    "Type": "Debug",
+    "Name": "dead_road",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable13": {
+    "Type": "Debug",
+    "Name": "count_",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable14": {
+    "Type": "Debug",
+    "Name": "clbox",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable15": {
+    "Type": "Debug",
+    "Name": "trueDR",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable16": {
+    "Type": "Debug",
+    "Name": "BOX",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable17": {
+    "Type": "Debug",
+    "Name": "road1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable18": {
+    "Type": "Debug",
+    "Name": "road2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable19": {
+    "Type": "Debug",
+    "Name": "DRT",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable20": {
+    "Type": "Debug",
+    "Name": "BOXa",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable21": {
+    "Type": "Debug",
+    "Name": "yx",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable22": {
+    "Type": "Debug",
+    "Name": "RT",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable23": {
+    "Type": "Debug",
+    "Name": "write_",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

@@ -1,0 +1,42 @@
+def Ace():
+    global A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10
+    A0 = A[0]
+    A1 = A[1]
+    A2 = A[2]
+    A3 = A[3]
+    A4 = A[4]
+    A5 = A[5]
+    A6 = A[6]
+    A7 = A[7]
+    A8 = A[8]
+    A9 = A[9]
+    #A10 = A[10]
+
+def find_road(size_y,size_x,s_y,s_x,e_y,e_x,communication):
+    point = 2; count = 1; last_point = 0; global A,last_point
+    A = [[99 if x == 0 or y == 0 or x == size_x+1 or y == size_y+1 else 88 if communication == 1 and read((y-1)*size_x+x) == 1 else 0 for x in range(size_x+2)]for y in range(size_y+2)]
+    y = [s_y,e_y]; x = [s_x,e_x]; Y = [-1,1,0,0]; X = [0,0,1,-1]; nextY = [0] * 100; nextX = [0] * 100
+    A[y[0]][x[0]] = 1; nextY[0] = y[0]; nextX[0] = x[0]
+    Ace()
+    while A[y[1]][x[1]] == 0:
+        for l in range(count):
+            y[0] = nextY[l]
+            x[0] = nextX[l]
+            for i in range(4):
+                if A[y[0]+Y[i]][x[0]+X[i]] == 0:
+                    A[y[0]+Y[i]][x[0]+X[i]] = point
+                    nextY[count] = y[0]+Y[i]
+                    nextX[count] = x[0]+X[i]
+                    count += 1 
+        last_point = point; point += 1;
+    A[y[1]][x[1]] = 1; 
+    while last_point != 1:
+        last_point -= 1
+        for i in range(4):
+            if A[y[1]+Y[i]][x[1]+X[i]] == last_point: 
+                A[y[1]+Y[i]][x[1]+X[i]] = 1
+                y[1] += Y[i]; x[1] += X[i]
+    A =[[1 if A[y][x] == 1 else 0  for x in range(size_x+2)]for y in range(size_y+2)]
+
+find_road(8,8,1,1,4,4,0)
+Ace()

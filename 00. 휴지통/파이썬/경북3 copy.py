@@ -1,0 +1,477 @@
+'''
+0. algorithm
+1. header
+2. device communication
+ - reading init
+ - converting init
+ - positions
+ - motion
+3. main
+'''
+
+# 0. Algorithm
+def exc(m,s,e,li=-1):
+    m = list(m)
+    m[s],m[e] = m[e],m[s]
+    step = [e,s] if li == -1 else li
+    return [''.join(m),[step,int(m[s])]]    
+def aro(pos):
+    if pos in cache:
+        return cache[pos]
+    res = []
+    if t:
+        dy,dx = [-1,0,1,0],[0,1,0,-1]
+    else:
+        dy = [-1]*15+[0,0]+[1]*15+[0,0]
+        dx = list(range(-7,8))+[1,7]+list(range(-7,8))+[-1,-7]
+    y,x = divmod(pos,sx)
+    for i in range(len(dy)):
+        ny,nx = y + dy[i],x + dx[i]
+        if -1 < ny < sy and -1 < nx < sx:
+            res.append(ny * sx + nx)
+    cache[pos] = res
+    return res
+def exp(n,m,pos=-1):
+    res = []
+    for i in range(size) if n > 0 else [pos]:       
+        if (n > 0 and m[i] != '0') or i in fix:
+            continue
+        if t == 2 and n > 0 and i in hli:        # 홀 위에는 팩을 둘 수 없음
+            continue        
+        for j in aro(i):
+            b = lambda pos: m[pos] not in (['0x','x'][t == 2] if n > 0 else 'x') and pos not in fix
+            if not b(j):
+                continue            
+            if t == 0:
+               if (abs(i-j) == 7 and i < 8) or \
+                   (j < 8 and i not in [8,15]) or \
+                   (i < 8 and j not in [8,15]):
+                    continue
+            if t == 2 and n > 0:                
+                if j in hli:
+                    li = [j]
+                    for hp in li:           # hole position
+                        li0 = li[:]         # 'li' init state coped
+                        for k in aro(hp):
+                            if b(k) and k not in li:
+                                if m[k] == '0':
+                                    if k in hli:
+                                        li.append(k)
+                                    continue
+                                res.append(exc(m,i,k,([i]+li0+[k])[::-1]))
+                if m[j] == '0':         # 0 끼리 교체 컨티뉴(홀 처리 이후)
+                    continue
+            res.append(exc(m,i,j) if n > 0 else [j,j])
+    return res  
+def bfs(n,m,*a):
+    global res
+    if n == -1:
+        leaf,s,li = a 
+    if n == 0:
+        s,e = a
+    if n == 1:
+        leaf,pos,pack = a
+    if n in [2,3]:
+        leaf,li,li0,n0 = a
+    if n == 4:
+        leaf,li,li0 = a
+    cur = m if n > 0 else s
+    que = deque([cur])
+    mkd,step = {cur:-1},{cur:-1}
+    while 1:
+        cur = que.popleft()
+        if n == -1 and \
+           leaf[cur] != '0' and cur not in li:
+            break
+        if n == 0 and cur == e:
+            break
+        if n == 1:
+            if (pos == -1 and cur == leaf) or \
+               (pos != -1 and cur[pos] == pack):
+                break
+        if n in [2,3]:       # 리스트 비교 정렬
+            li1 = ''.join([cur[i] for i in li if cur[i] != '0'])
+            if n == 2 and li0[:n0] in li1:
+                break
+            if n == 3 and li0 in li1 and cur[n0] == leaf[n0]:
+                break
+        if n == 4:
+            if [cur[i] for i in li] == li0:
+                break
+        for i,j in exp(n,cur if n > 0 else m,cur):
+            if i not in mkd:
+                que.append(i)
+                mkd[i],step[i] = cur,j
+    mkd[-2] = cur
+    path = [step[cur]]
+    while mkd[cur] != -1:
+        cur = mkd[cur]
+        path.append(step[cur])
+    if n > 0 :
+        res += path[::-1][1:]
+        return mkd[-2]
+    return path[::-1][1:]
+def sort(m,leaf,e,p=-1):
+    pack = leaf[e] if p == -1 else p
+    res = []
+    s = m.index(pack)
+    r = bfs(0,m,s,e)
+    if t == 2:
+        r = [i for i in r if i not in hli]        
+    for i in r:
+        m = bfs(1,m,leaf,i,pack)        
+    fix.append(e)
+    return m
+def main(g_t,m,*a):    
+    global t,sy,sx,size,fix,res,cache
+    t = g_t
+    sy,sx = [[2,8],[5,5],[4,4]][t]
+    size = sy * sx
+    fix = []
+    res = []
+    cache = {}      # cache reset
+    if t == 0:
+        leaf, = a
+        for i in range(2):
+            p = leaf[8+i]
+            m = sort(m,leaf,[0,2,5,7][i],p)
+        for i in range(4):
+            m = sort(m,leaf,11-i,leaf[15-i])
+        fix = []
+        for i in range(8):
+            m = sort(m,leaf,15-i)
+        m = sort(m,leaf,12)
+    if t == 1:
+        leaf, = a
+        hold = {}
+        di1 = {2:7,14:13,22:17,10:11}       # 구멍 앞
+        di2 = {2:22,14:10,22:2,10:14}        # 반대 구멍
+        di3 = {2:[6,7,8],14:[8,13,18],22:[18,17,16],10:[16,11,6]}       # 법규
+        hold = []
+        for i in range(2):
+            if not i:
+                pos = [di2[i] for i in di2 if m[i] == 'x'][0]
+            else:
+                pos = [i for i in di1 if i not in fix and m[i] != 'x'][0]
+            pos1 = di1[pos]
+            m = sort(m,leaf,pos,leaf[pos1])         # 고정 구멍 반대편 정렬
+            hold.append(pos1)
+        li1 = [6,7,8,13,18,17,16,11]
+        li2 = ''.join([leaf[i] for i in li1 if i not in hold][:3])
+        m = bfs(2,m,leaf,li1,li2,3)
+        li3 = di3[pos]         # 법규
+        m = bfs(2,m,leaf,li3,li2,3)
+        fix += li3
+        li2 = ''.join([leaf[i] for i in li1 if i not in hold][3:])
+        m = bfs(2,m,leaf,li1,li2,3)
+        fix = [i for i in di1]
+        for i in li1:
+            if i not in hold:
+                m = bfs(1,m,leaf,i,leaf[i])
+                fix.append(i)
+        fix = [i for i in fix if i not in di1]
+        m = bfs(1,m,leaf,-1,-1)
+    if t == 2:        
+        global hli
+        leaf,hli = a        
+        hold = {}       # 정렬 위치에 팩이 없을때 가까운 팩을 가져와서 홀딩
+        xli = [i for i in range(16) if m[i] == 'x']         # 고정팩 위치
+        pos = [i for i in [5,6,9,10] if i in xli]           # 중앙에 있는 고정팩
+        vt = {5:15,6:12,9:3,10:0}       # 꼭짓점 위치
+        if pos:
+            pos = pos[0]        # 중앙 고정팩 위치                    
+            li = {5:[3,12,7,13,15,14,11], 6:[0,15,4,14,12,13,8],
+                  9:[0,15,1,11,3,2,7], 10:[3,12,2,8,0,1,4]}[pos]       # 윤곽 정렬 위치
+            li0 = {5:[1,2,6,10,9,8,4,0], 6:[2,3,7,11,10,9,5,1],
+                  9:[5,6,10,14,13,12,8,4], 10:[6,7,11,15,14,13,9,5]}[pos]         # 회전 초밥 위치
+            b = lambda n:n not in hli and n !=vt[pos] and m[n] != 'x'       # 홀 x, 꼭짓점x, 고정 팩x
+            pos0 = [i for i in li if leaf[i] == '0' and b(i)]
+            pos0 = pos0[0] if pos0 else [i for i in li if b(i)][0]            
+            for i in li:
+                if i not in hli and i !=pos0 and m[i] !='x':
+                    if leaf[i] == '0' or i in hold:
+                        pos1 = bfs(-1,m,leaf,i,hold)[-1]
+                        m = sort(m,leaf,i,leaf[pos1])
+                        hold[pos1] = i
+                    else:
+                        m = sort(m,leaf,i)
+            li1 = ''.join([leaf[i] for i in li0 if i not in hold and leaf[i] != '0'])
+            for i in range(1,len(li1)+1):
+                m = bfs(2,m,leaf,li0,li1,i)            
+            if pos0 in hold:
+                fix.remove(hold[pos0])
+                del hold[pos0]
+            m = bfs(3,m,leaf,li0,li1,pos0)
+            fix.append(pos0)
+            for i in li0:
+                if i not in hold and leaf[i] != '0':
+                    m = bfs(3,m,leaf,li0,li1,i)
+                    fix.append(i)                    
+            for i in hold:
+                fix.remove(hold[i])
+            if m[pos0] == '0':
+                fix.remove(pos0)
+            m = bfs(1,m,leaf,-1,-1)
+        else:
+            li = [0,3,12,15,1,2,13,14,4,8]      # overall sorting sequnce
+            for i in [[0,1,4,3,7,12,13],[3,2,7,0,4,15,14],
+                      [12,13,8,0,1,15,11],[15,14,11,3,2,12,13]]:       # not include fix pack "
+                if 'x' not in [leaf[j] for j in i[:3]]:
+                    li0 = i
+            ct = 0
+            for i in li0:
+                if i not in hli and m[i] != 'x' and ct < 4:
+                    if leaf[i] == '0' or i in hold:
+                        pos = bfs(-1,m,leaf,i,hold)[-1]
+                        m = sort(m,leaf,i,leaf[pos])
+                        hold[pos] = i
+                    else:
+                        m = sort(m,leaf,i)
+                    ct += 1
+            li1 = [i for i in range(16) if i not in fix and i not in hold]
+            li2 = [leaf[i] for i in li1]        # leaf list            
+            m = bfs(4,m,leaf,li1,li2)       # 홀딩 중인거 빼고 정렬
+            for i in hold:      # 홀딩 풀고
+                fix.remove(hold[i])
+            m = bfs(1,m,leaf,-1,-1)         # 홀딩 했던거 정렬
+    return res
+
+# 1. header
+tl = lambda *n:tp_log(' '.join(map(str,n)))
+from collections import deque
+drl_report_line(OFF)
+set_tool('tool wei')
+set_velx(1000); set_accx(2000)
+set_velj([100,150,180,225,225,225]); set_accj(350)
+begin_blend(19)
+ml,mj,aml,amj,tr,wt = movel,movej,amovel,amovej,trans,wait
+def mjx(pos):
+    movejx(pos,sol = 3 if T == 2 else 2)
+def rml(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,vel=None,acc=None):
+    aml([x,y,z,a,b,c],mod=1,v=vel,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def rmj(x=0,y=0,z=0,a=0,b=0,c=0,t=0.1,acc=None):
+    amj([x,y,z,a,b,c],mod=1,a=acc)
+    mwait(0) if t is -1 else wait(t)
+def up(p,mod=0,h=-1):
+    p,h = p[:],h if h != -1 else [260,260,260][T]
+    p[2] = p[2] + h if mod else h
+    return p
+tool = 0
+def cht(t=0.6,n = -1):
+    global tool,pos
+    if n != -1 and n == tool:
+        return -1
+    tool = (1 - tool)
+    rmj(c=-180 if tool else 180,t=t,acc=1500)
+    pos = poss[tool][T]
+isgrip = False
+def grip(n):
+    global isgrip
+    isgrip = n
+    if tool:
+        if not n:
+            wt(0.1)
+        write(40,n,b=False)
+        wt(0.15)
+    else:
+        set_tool_digital_outputs([1,-2] if n else [-1,2])
+        wt(0.25)
+def it(n,t=0.5):
+    write(10,n,b=False)
+    wt(t * abs(n))
+    return 0.5 * abs(n)
+gp = 4.5
+def gt(n,t=0.1):
+    global gp
+    if n == gp:
+        return -1
+    write(20,n,b=False)
+    n1 = 0.1 * abs(gp - n)
+    wt(n1)
+    gp = n
+    return n1
+        
+# 2. device communication
+ser=serial_open("COM")
+def ts(ad,m=[],y=0,x=0,b=True):
+    if b:
+        ad += 100 * (1 + T)
+    k='00'+['W','R'][bool(y)]+'SB06%DW'
+    k=[ord(i) for i in k]
+    n=len(m) if not y else y*x
+    ad = [0]*(3-len(str(ad))) + list(map(int,str(ad)))
+    k+=[ord(str(abs(i))) for i in ad]
+    k+=[ord(i) for i in '{:02X}'.format(n)]
+    if not y:
+        for i in m:
+            if i<0:
+                i+=2**16
+            k+=[ord(j) for j in '{:04X}'.format(i)]
+    ser.write([5]+k+[4])
+    wait(0.02 if n is 1 else 0.05)
+    k=ser.read(ser.inWaiting())
+    if y:
+        for i in range(0,y*x*4,4):
+            v=int(k[10+i:14+i],16)
+            if v&(1<<15):
+                v-=2**16 
+            m.append(v)
+        return m if len(m) > 1 else m[0]
+def write(*a,b = True):
+    if isinstance(a[0],int):
+        a = [a]
+    for i,j in a:
+        ts(i,j if isinstance(j,list) else [j],b=b)
+def read(ad,y=1,x=1,b=True):
+    return ts(ad,[],y,x,b)
+    
+# - writing init        temp
+def writing_init_temp():
+    global T
+    li1 = [[0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 4, 3, 6, 7, 5, 8],[0, 0, 0, 0, 0, 0, 8, 6, 7, 0, 0, 1, 0, 2, 0, 0, 5, 4, 3, 0, 0, 0, 9, 0, 0],[1, 3, 9, 0, 9, 2, 10, 0, 0, 4, 9, 8, 6, 5, 10, 7]]
+    li2 = [[0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 5, 7, 4, 2, 8, 6],[0, 0, 0, 0, 0, 0, 7, 6, 4, 0, 0, 2, 0, 1, 0, 0, 3, 5, 8, 0, 0, 0, 0, 0, 0],[8, 6, 9, 7, 9, 4, 10, 3, 5, 0, 9, 2, 0, 1, 10, 0]]
+    for i in range(3):
+        T = i
+        write(0,li1[i])
+        write(len(li1[i]),li2[i])
+    write(1,[7,3,2,4,8,6,5,1],b=False)
+#writing_init_temp()         # temp
+
+# - reading init
+root = []
+leaf = []
+info = [-1,-1,-1]
+for i in range(3):
+    T = i
+    y,x = [2,5,4][i],[8,5,4][i]
+    for j in range(2):
+        m = leaf if j else root
+        m.append(read(y * x * j,y,x))
+    
+
+# - converting init
+def con(m):
+    m = ['x' if i == 9 else '0' if i == 10 else str(i) for i in m]
+    if T < 2:
+        if T == 1:
+            li = read(0,5,5)
+            li = [i for i in range(len(li)) if li[i] == 9]
+            li = [0,1,3,4,5,9,12,15,19,20,21,23,24]+li
+        else:
+            li = [1,3,4,6]
+        m = ['x' if i in li else m[i] for i in range(len(m))]
+    return ''.join(m)
+for i in range(3):
+    T = i
+    if i == 2:
+        info[i] = [j for j in range(16) if root[i][j] == 10]
+    root[i] = con(root[i])
+    leaf[i] = con(leaf[i])
+    
+# - get positions
+def ps(pos,y,x,sy=50,sx=50):
+    s = y * x
+    pos = [pos] * s
+    for i in range(1,s):
+        if i % x:
+            pos[i] = tr(pos[i - 1],[-sx,0,0,0,0,0])
+        else:
+            pos[i] = tr(pos[i-x],[0,sy,0,0,0,0])
+    return pos
+poss = [
+[ps(posx(208.81, 323.18, 223.76, 0.08, -90, -89.99),2,8,100),
+ps(posx(-246.54, 326.42-100, 223.56, 0.63, -90, -90),5,5),
+ps(posx(446.32, 224.1, 224.1, 0.1, 90, 90.03),4,4)],
+[ps(posx(207.94, 322.38, 139.4+58.5, 0.11, -90, 89.97),2,8,100),
+ps(posx(-246.97, 324.88-100, 138.66+58.5, 0.1, -90.01, 89.99),5,5),
+ps(posx(447.39, 225.75, 138.53+58.5, 0.09, 89.99, -89.98),4,4)]]
+
+# - motions
+def mt1(p,g,d=[],mod=0,h=-1,z=0,a1=1500,a2=1000,b1=True,b2=False):
+    tp = tr(pos[p],[0,0,-(0.1+z),0,0,0])
+    ml(up(tp,mod,h),a=a1)
+    if b2:
+        return -1
+    ml(tp,a=a2,r=5)
+    grip(g)
+    if d:
+        ad,val = d
+        write(ad,val)
+    if b1:
+        ml(up(tp),a=a1)
+        
+def mt2(p):
+    n1 = [i for i in read(1,1,8,b=False)].index(p)
+    if T == 0:
+        it(4 - n1)
+    else:
+        n2 = [i for i in read(124,1,8,b=False)].index(p)
+        t1 = it(4 - n1,0)
+        t2 = gt(1 +  n2,0)
+        t = t2 if t1 < t2 else t1
+        wait(t)
+    
+# 3. Main
+def Run():
+    if T == 1:
+        mjx(up(pos[20]))
+    if T == 2:
+        rml(z=100)
+        rmj(b=-180)
+        mjx(up(pos[15],h=360))        
+    for i in range(len(res)):
+        r = res[i]
+        b4 = T == 2 and len(r[0]) > 2
+        if b4:
+            s,e = r[0][0],r[0][-1]
+            road = r[0][1:-1]
+        else:
+            s,e = r[0]
+        p = r[1]       
+        af = res[i+1][1] if i < len(res)-1 else -1
+        bf = res[i-1][1] if i else -1
+        b1,b2 = p == af,p == bf
+        b3 = T == 0 and ((s in [7,8] and e in [7,8]) or abs(s - e) not in [1,8])
+        
+        if not b2:
+            mt2(p)      # index, gantry pack marking
+            li = [[8,9,10,11,12,13,14,15],[6,7,8,11,13,16,17,18],[5,6,9,10]][T]      # blue area
+            cht(n = 0 if s in li else 1)      # not blue area -> air gripper
+            z = [0,20 if p in [1,2,7,8] else 10 if p in [3,4] else 0][tool]         # height control
+            mt1(s,1,[s,0],z=z,b1=False)
+            rml(z=3,acc=150)
+            if b3:      # ride line
+                n = lambda pos:[-50,50][pos < 8]
+                rml(y = n(s))
+                ml(up(tr(pos[e],[0,n(e),-z,0,0,0]),1,3))
+            if b4:      # ride hole
+                for i in road:
+                    mt1(i,0,[],1,3,z,b2=True)
+        mt1(e,0,[e,p],1,3,z,a2=150,b2=b1)
+
+write(30,1,b=False)
+import time         # temp
+time_start = time.time()        # temp
+
+# - Calcurating
+ress = []
+for i in range(3):
+    tl(i,root[i],leaf[i],info[i])        # temp
+    if info[i] != -1:
+        ress.append(main(i,root[i],leaf[i],info[i]))
+    else:
+        ress.append(main(i,root[i],leaf[i]))
+        
+for i in range(3):
+    grip(0)
+    if not i:
+        mj([90,0,90,90,90,0])
+        tool = 0
+    T,pos,res = i,poss[tool][i],ress[i]
+    Run()
+    
+write(30,1,b=False)
+time_end = time.time() - time_start         # temp
+minute,second = int(time_end // 60),int(time_end % 60)         # temp
+tl('{}m {}s\n'.format(minute,second))         # temp

@@ -1,0 +1,153 @@
+{
+  "Count": "25",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "A0",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "A1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable2": {
+    "Type": "Debug",
+    "Name": "A2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable3": {
+    "Type": "Debug",
+    "Name": "A3",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable4": {
+    "Type": "Debug",
+    "Name": "A4",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable5": {
+    "Type": "Debug",
+    "Name": "A5",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable6": {
+    "Type": "Debug",
+    "Name": "A6",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable7": {
+    "Type": "Debug",
+    "Name": "A7",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable8": {
+    "Type": "Debug",
+    "Name": "yv",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable9": {
+    "Type": "Debug",
+    "Name": "xv",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable10": {
+    "Type": "Debug",
+    "Name": "count",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable11": {
+    "Type": "Debug",
+    "Name": "nextY",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable12": {
+    "Type": "Debug",
+    "Name": "nextX",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable13": {
+    "Type": "Debug",
+    "Name": "point",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable14": {
+    "Type": "Debug",
+    "Name": "now_go",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable15": {
+    "Type": "Debug",
+    "Name": "integer",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable16": {
+    "Type": "Debug",
+    "Name": "C0",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable17": {
+    "Type": "Debug",
+    "Name": "C1",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable18": {
+    "Type": "Debug",
+    "Name": "C2",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable19": {
+    "Type": "Debug",
+    "Name": "C3",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable20": {
+    "Type": "Debug",
+    "Name": "C4",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable21": {
+    "Type": "Debug",
+    "Name": "C5",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable22": {
+    "Type": "Debug",
+    "Name": "C6",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable23": {
+    "Type": "Debug",
+    "Name": "C7",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable24": {
+    "Type": "Debug",
+    "Name": "off",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

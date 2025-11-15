@@ -1,0 +1,11 @@
+speed = 300
+set_velx(speed); set_accx(speed)
+
+svm_connect()
+movel(posx(606.62, 253.03, 439.39, 172.98, -114.24, -129.28))
+while True:
+    svm_set_led_brightness(500)
+    set_tool_digital_outputs([1,-2])
+    wait(0.01)
+    svm_set_led_brightness(0)
+    set_tool_digital_outputs([-1,2])

@@ -1,0 +1,124 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4                
+
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+    
+set_velx(300), set_accx(300)#전역속도설정
+move_home(1)
+set_tool_digital_outputs([-1,2])
+
+yv=[-1,1,0,0]; xv=[0,0,-1,1]; next = [0] * 4; par = [0] * 9
+nextY = [0] * 6; nextX = [0] * 6; y_ = [0] * 2; x_ = [0] * 2
+point = count_ = 1;
+global point
+
+XU = [[],[],[]];
+def pos(a):
+    result = posx(298.45, 320.09, 50, 30.69, 180, 30.11) if a == 0 else posx(-20.49, 480.65, 50, 144.56, -180, 144.31) if a == 1 else posx(99.16, 319.71, 50, 71.46, 180, 71.46)
+    return result
+    
+for i in range(0,3): # 0~2
+    xu = [pos(i)] * (lambda a: 24 if a == 2 else 9)(i)
+    for x in range(1, (lambda a: 24 if a == 2 else 9)(i)):
+        if x%(lambda a: 6 if a == 2 else 3)(i) != 0:
+            xu[x] = trans(xu[x-1], [-40,0,0,0,0,0], 0, 0)
+        else:
+            xu[x] = trans(xu[x-(lambda a: 6 if a == 2 else 3)(i)], [0,40,0,0,0,0], 0, 0)
+    XU[i] = xu;
+XU_start = XU[0]; XU_stop = XU[1]; XU_ = XU[2]
+
+# 장애물 찾기 + 팔레트 만들기 
+A = [[9 if x == 0 or y == 0 or x == 7 or y == 5 else 9 if read((y-1)*6+x) == 4 else 0 for x in range(8)]for y in range(6)]
+A0 = A[0]
+A1 = A[1]
+A2 = A[2]
+A3 = A[3]
+A4 = A[4]
+A5 = A[5] 
+
+ct = 0
+for y in range(1,5):
+    for x in range(1,7):
+        if read((y-1)*6+x) == 10:
+            y_[0] = y; x_[0] = x
+        if read((y-1)*6+x) == 100:
+            y_[1] = y; x_[1] = x
+            
+def up_down_left_right():
+    wait(2)
+    global count_, point
+    if count_ >= 1: point += 1
+    for l in range(count_):
+        y_[0] = nextY[l]; x_[0] = nextX[l]
+        for i in range(4):
+            if A[y_[0]+yv[i]][x_[0]+xv[i]] == 0:
+                A[y_[0]+yv[i]][x_[0]+xv[i]] = point
+                next
+    count_ = 0; count = 0
+    
+#길찾기 
+def find_road():
+    nextY[0] = y_[0]#출발지점 저장
+    nextX[0] = x_[0]
+    count = 0
+    #출발지점 
+    A[y_[0]][x_[0]] = 1
+    for i in range(22):
+        if read(i) == 10:
+            movel(XU_[i-1])
+            break
+    while True:
+        up_down_left_right()
+        wait(2)
+        # 현재 위치 + 1 값 찾기 
+        for y in range(1,5):
+            for x in range(1,7):
+                if A[y][x] == point:
+                    nextY[count] = y
+                    wait(2)
+                    nextX[count] = x
+                    wait(2)
+                    count += 1
+        if A[y_[1]][x_[1]] != 0:
+            break
+# 작은 팩 순서대로 잡기 
+for i in range(101,110):
+    if read(i) == 1: par[i-101] = 1
+    if read(i) == 2: par[i-101] = 2
+    if read(i) == 3: par[i-101] = 3
+for l in range(9):
+    if l <= 3:
+        for i in range(9):
+            if par[i] == 1:
+                movel(XU_start[i])
+                find_road()#길 찾기 입장

@@ -1,0 +1,7 @@
+set_velx(300); set_accx(300)
+
+C = d2r(10/2-1)
+tp_log("{}".format(C))
+begin_blend(C)
+for i in range(5):
+    movel([-30,0,0,0,0,0], mod = 1)

@@ -1,0 +1,178 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 5'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 5'.split()
+w[0],r[0] = [5] * 2
+w[20],r[16] = [4] * 2
+for i in range(1,20):
+    w[i] = ord(w[i])
+    if i < 16: r[i] = ord(r[i])
+
+def write(ad,val):
+    ser = serial_open(port = 'COM')
+    w[14] = ord(str(ad // 10))
+    w[15] = ord(str(ad % 10))
+    if val < 16:
+        w[18] = ord(str(0))
+        w[19] = ord(hex(val)[2]) 
+    else:
+        w[18] = ord(hex(val)[2])
+        w[19] = ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[14] = ord(str(ad // 10))
+    r[15] = ord(str(ad % 10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    sum = int(r2[10:14],16)
+    return sum
+
+set_velx(500), set_accx(500)#전역속도설정
+#=================(좌표 찍기)===================
+XU = [posx(138.81, 279.71, 0, 62.47, 180, 62.72)]*48
+for x in range(1,48):
+    if x%8 != 0:
+        XU[x] = trans(XU[x-1], [-40,0,0,0,0,0], 0, 0)
+    else:
+        XU[x] = trans(XU[x-8], [0,40,0,0,0,0], 0, 0)
+        
+#=========(A,B팔레트)==========     
+A = [[99 if x == 0 or y == 0 or x == 9 or y == 7 else 99 if read((y-1)*8+x) == 3 else 0 for x in range(10)]for y in range(8)]
+B = [];C = []
+for i in A:
+    B.append(i[:]); C.append(i[:])
+A0 = A[0]; C0 = C[0]
+A1 = A[1]; C1 = C[1]
+A2 = A[2]; C2 = C[2]
+A3 = A[3]; C3 = C[3]
+A4 = A[4]; C4 = C[4]
+A5 = A[5]; C5 = C[5]
+A6 = A[6]; C6 = C[6]
+A7 = A[7]; C7 = C[7]
+# 변수 선언 
+a = a0 = a1 = a2 = off = 0
+add = count = count_ = counting = a = b = now = juststop = 0
+point = integer = 1
+yv = [0,0]; xv = [0,0]
+nextY = [0] * 6
+nextX = [0] * 6
+now_go = [0] * 4
+global off
+#=========(출발, 도착 ,벽 찾기)========
+for y in range(1,7):
+    for x in range(1,9):
+        if B[y][x] == 0: 
+            B[y][x] = XU[a]; a += 1
+        else: a+=1
+        if read((y-1)*8+x) == 1+add:
+            yv[0+a0] = y; xv[0+a0] = x   
+        #a1+=1 == a+=1
+        if yv[0] != 0 and xv[0] != 0:
+            add = 1; a0 = 1
+A[yv[0]][xv[0]] = 1
+
+def seting():
+    movel([0,0,100,0,0,0], mod = 1);
+    movela = B[nextY[0]][nextX[0]]
+    start = trans(movela, [0,0,100,0,0,0], 0, 0)
+    movel(start)
+    movel([0,0,-100,0,0,0], mod = 1)  
+    
+def up_down_left_right():
+    global point, count, count_
+    if count_ >= 1: point += 1
+    for i in range(count_):
+        yv[0] = nextY[i]; xv[0] = nextX[i]
+        if A[yv[0]-1][xv[0]] == 0: # 상
+            A[yv[0]-1][xv[0]] = point         
+        if A[yv[0]+1][xv[0]] == 0: # 하
+            A[yv[0]+1][xv[0]] = point         
+        if A[yv[0]][xv[0]+1] == 0: # 좌  
+            A[yv[0]][xv[0]+1] = point          
+        if A[yv[0]][xv[0]-1] == 0: # 우
+            A[yv[0]][xv[0]-1] = point
+    count_ = 0
+# a 의 값이 어디에 있는가 (상,하,좌,우)
+def find(a_,off):
+    global now_go
+    now_go = [0] * 4; a = b = 0; 
+    for i in range(4):  
+            if i % 2 == 0: # 0, 2
+                b = 1
+                if i < 2: a = -1 # 0
+                else: a = 0 # 2
+            else: # 1, 3
+                b = -1
+                if i < 2: a = 1 # 1
+                else: a = 0 # 3
+            if off == 0:
+                if A[yv[0]+a][xv[0]+a+b] == a_:
+                    now_go[i] = 1
+                    break
+            else:
+                if C[yv[0]+a][xv[0]+a+b] == a_:
+                    now_go[i] = 1
+                    break            
+# 현재 위치 + 1 값 넣기 
+while True:
+    up_down_left_right()
+    # 현재 위치 + 1 값 찾기 
+    for y in range(1,7):
+        for x in range(1,9):
+            if A[y][x] == point:
+                nextY[count_] = y; nextX[count_] = x
+                count_ += 1
+    if A[yv[1]][xv[1]] != 0:
+        break
+nextY = [0] * 6; nextX = [0] * 6
+# 99 = 0; 초기 위치로 복귀
+for y in range(8):
+    for x in range(10):
+        if A[y][x] == 99:
+            A[y][x] = 0; C[y][x] = 9
+        if A[y][x] == 1:
+            nextY[0] = y; nextX[0] = x # 출발 위치를 nextY,X의 0번째에 저장         
+            yv[0] = y; xv[0] = x            
+# 목적지 위치 값과 겹치는 값 지우기
+for y in range(1,7):
+    for x in range(1,9):
+        if A[y][x] == point:
+            if y != yv[1] or x != xv[1]:
+                A[y][x] = 0
+#길 찾기 
+for y in range(1,7):
+    for x in range(1,9):
+        if A[y][x] == point:
+            nextY[1] = y; nextX[1] = x # 도착 위치를 nextY,X의 1번째에 저장             
+yv[0] =  nextY[1]; xv[0] =  nextX[1] # 도착위치로 가기
+C[yv[0]][xv[0]] = 1
+now = point
+while now != 1:
+    now -= 1
+    find(now,0)
+    for i in range(4):
+        if now_go[i] == 1:
+            if i == 0: yv[0] -= 1
+            elif i == 1: yv[0] += 1
+            elif i == 2: xv[0] += 1
+            elif i == 3: xv[0] -= 1
+        C[yv[0]][xv[0]] = 1
+    if C[nextY[0]][nextX[0]] == 1:
+        break
+#C파레트 1 을 찾아서 이동
+seting()
+while C[nextY[1]][nextX[1]] != 0:
+    C[nextY[0]][nextX[0]] = 0
+    find(1,1)
+    for i in range(4):
+            if now_go[i] == 1:
+                if i == 0: yv[0] -= 1
+                elif i == 1: yv[0] += 1
+                elif i == 2: xv[0] += 1
+                elif i == 3: xv[0] -= 1
+            C[yv[0]][xv[0]] = 0
+            movel(B[yv[0]][xv[0]])

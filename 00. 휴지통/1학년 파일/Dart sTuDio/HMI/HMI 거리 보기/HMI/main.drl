@@ -1,0 +1,57 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 4'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 4'.split()
+wP,rP = w[:],r[:]
+wP[11:21] = 'P X 0 0 0 0 0 4'.split()
+rP[11:17] = 'P X 0 0 0 4'.split()
+
+w[0],r[0],wP[0],rP[0] = [5] * 4
+w[20],wP[18],r[16],rP[16] = [4] * 4                
+
+wr = lambda x : list(map(lambda f : ord(f), x[1:len(x)-1]))
+for i in [w,r,wP,rP]:
+    i[1:len(i)-1] = wr(i)
+
+def write(ad, val, sk = 0):
+    ser = serial_open(port = "COM")
+    wP[13] = w[13] = ord(str(ad//100))
+    wP[14] = w[14] = ord(str((ad%100)//10))
+    wP[15] = w[15] = ord(str(ad%10))
+    wP[16] = w[18] = ord(str(0)) if val < 16 else ord(hex(val)[2])
+    wP[17] = w[19] = ord(hex(val)[2]) if val < 16 else ord(hex(val)[3])
+    ser.write(bytearray(wP if sk else w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad , sk = 0):
+    ser = serial_open(port = "COM")
+    rP[13] = r[13] = ord(str(ad//100))
+    rP[14] = r[14] = ord(str((ad%100)//10))
+    rP[15] = r[15] = ord(str(ad%10))
+    ser.write(bytearray(rP if sk else r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    return r2[11] if sk else int(r2[10:14],16)
+    
+for i in range(37):
+    write(i,0)
+write(15,1)
+y = [0] * 2; x = [0] * 2; Y =[-1,-1,1,1]; X = [-1,1,1,-1]; 
+stop_ = y_ = x_ = 0
+A = [[1 if x == 0 or y == 0 or x == 7 or y == 7 else 0 for x in range(8)]for y in range(8)]
+for i in range(1,7):
+    for l in range(1,7):
+        if read((i-1)*6+l) == 1:
+            y[0] = i; y_ = i
+            x[0] = l; x_ = l
+            break
+while stop_ != 4:
+    y[0] += Y[stop_]
+    x[0] += X[stop_]
+    if A[y[0]][x[0]] == 0:
+        write((y[0]-1)*6+x[0],1)
+    else:
+        y[0] = y_ 
+        x[0] = x_ 
+        stop_ += 1
+        

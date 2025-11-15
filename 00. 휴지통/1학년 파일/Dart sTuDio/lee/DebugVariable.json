@@ -1,0 +1,15 @@
+{
+  "Count": "2",
+  "Variable0": {
+    "Type": "Debug",
+    "Name": "A",
+    "ValueType": "Unknown",
+    "Value": ""
+  },
+  "Variable1": {
+    "Type": "Debug",
+    "Name": "B",
+    "ValueType": "Unknown",
+    "Value": ""
+  }
+}

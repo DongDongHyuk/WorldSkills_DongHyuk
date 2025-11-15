@@ -1,0 +1,108 @@
+w = '5 0 0 W S S 0 1 0 6 % D W 0 0 0 0 0 0 0 5'.split()
+r = '5 0 0 R S S 0 1 0 6 % D W 0 0 0 5'.split()
+w[0],r[0] = [5] * 2
+w[20],r[16] = [4] * 2
+for i in range(1,20):
+    w[i] = ord(w[i])
+    if i < 16: r[i] = ord(r[i])
+
+def write(ad,val):
+    ser = serial_open(port = 'COM')
+    w[14] = ord(str(ad // 10))
+    w[15] = ord(str(ad % 10))
+    if val < 16:
+        w[18] = ord(str(0))
+        w[19] = ord(hex(val)[2])
+    else:
+        w[18] = ord(hex(val)[2])
+        w[19] = ord(hex(val)[3])
+    ser.write(bytearray(w))
+    serial_close(ser)
+    wait(0.02)
+
+def read(ad):
+    ser = serial_open(port = 'COM')
+    r[14] = ord(str(ad // 10))
+    r[15] = ord(str(ad % 10))
+    ser.write(bytearray(r))
+    wait(0.02)
+    r1 = ser.read(ser.inWaiting())
+    r2 = r1.decode()
+    sum = int(r2[10:14],16)
+    return sum
+    
+set_velx(300), set_accx(300)#전역속도설정 
+
+#변수 선언 
+a = add =  0
+    
+# 1차원 칸
+XU = [posx(99.16, 357.13, 60 , 29.59, -179.96, 29.88)]*24
+
+for x in range(1,24):
+    if x%6 != 0:
+        XU[x] = trans(XU[x-1], [-40,0,0,0,0,0], 0, 0)
+    else:
+        XU[x] = trans(XU[x-6], [0,40,0,0,0,0], 0, 0)
+        
+A = [[9]*8 for _ in range(6)]   
+for y in range(1,5):
+    for x in range(1,7):
+        A[y][x] = 0
+        
+B = [[9]*8 for _ in range(6)]            
+for y in range(1,5):
+    for x in range(1,7):
+        B[y][x] = XU[a]
+        a = a + 1
+
+
+v1 = [0,0]
+v2 = [0,0]
+v3 = [0,0]
+            
+# 출발 도착 (통신)
+a = add = 0
+#=======================================  
+for i in range(2):
+    if i == 1:
+        add = 1; a = 1
+    for y in range(1,5):
+        for x in range(1,7):
+            if read((y-1)*6+x) == 1+add:
+                v1[0+a] = y
+                v2[0+a] = x
+
+a = add = 0
+
+set_tool_digital_outputs([-1,2])
+a = B[v1[0]][v2[0]]
+start = trans(a, [0,0,110,0,0,0], 0, 0)
+movel(start)
+movel([0,0,-120,0,0,0], mod = 1)
+set_tool_digital_outputs([1,-2])
+movel([0,0,10,0,0,0], mod = 1)
+
+
+while(1):
+    if  v1[0] != v1[1]: # y
+        v1[0] = v1[0] + 1
+        if A[v1[0]][v2[0]] == 9 or v1[1] - v1[0] < 0:
+            v1[0] = v1[0] - 2
+        movel(B[v1[0]][v2[0]])
+
+    if v2[0] != v2[1]: # x
+        v2[0] = v2[0] + 1
+        if A[v1[0]][v2[0]] == 9 or v2[1] - v2[0] < 0:
+            v2[0] = v2[0] - 2
+        movel(B[v1[0]][v2[0]])
+        
+    if v1[0] == v1[1] and v2[0] == v2[1]:
+        movel([0,0,-10,0,0,0], mod = 1)
+        set_tool_digital_outputs([-1,2])
+        break
+   
+    
+    
+
+                       
